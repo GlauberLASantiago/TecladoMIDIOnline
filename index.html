@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teclado MIDI Online</title>
+    <title>Teclado MIDI Online Avançado</title>
     <!-- Tailwind CSS para estilização rápida e responsiva -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Soundfont Player para carregar samples de timbres reais General MIDI -->
     <script src="https://unpkg.com/soundfont-player/dist/soundfont-player.min.js"></script>
+    <!-- Lucide Icons para os botões -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         body { 
             background-color: #0f172a; /* Slate 900 */
@@ -29,55 +31,30 @@
             scrollbar-color: #475569 #1e293b;
         }
 
-        .piano-container::-webkit-scrollbar {
-            height: 14px;
-        }
-        .piano-container::-webkit-scrollbar-track {
-            background: #1e293b; 
-            border-radius: 0 0 16px 16px;
-        }
-        .piano-container::-webkit-scrollbar-thumb {
-            background: #475569; 
-            border-radius: 10px;
-            border: 3px solid #1e293b;
-        }
-        .piano-container::-webkit-scrollbar-thumb:hover {
-            background: #64748b; 
-        }
+        .piano-container::-webkit-scrollbar { height: 14px; }
+        .piano-container::-webkit-scrollbar-track { background: #1e293b; border-radius: 0 0 16px 16px; }
+        .piano-container::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; border: 3px solid #1e293b; }
+        .piano-container::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
         /* Teclas Brancas */
         .white {
-            width: 54px;
-            height: 240px;
-            background: #f8fafc;
-            border: 1px solid #cbd5e1;
-            border-radius: 0 0 6px 6px;
-            cursor: pointer;
-            box-shadow: inset 0 -4px 6px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.3);
-            transition: all 0.05s ease;
-            position: relative;
-            z-index: 1;
+            width: 54px; height: 240px;
+            background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 0 0 6px 6px;
+            cursor: pointer; box-shadow: inset 0 -4px 6px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.3);
+            transition: all 0.05s ease; position: relative; z-index: 1;
         }
         .white.active {
-            background: #e2e8f0;
-            box-shadow: inset 0 -2px 4px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.4);
+            background: #e2e8f0; box-shadow: inset 0 -2px 4px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.4);
             transform: perspective(500px) rotateX(2deg) translateY(2px);
         }
 
         /* Teclas Pretas */
         .black {
-            width: 34px;
-            height: 150px;
+            width: 34px; height: 150px;
             background: linear-gradient(to bottom, #334155 0%, #0f172a 100%);
-            border-radius: 0 0 4px 4px;
-            cursor: pointer;
+            border-radius: 0 0 4px 4px; cursor: pointer;
             box-shadow: inset 0 -2px 4px rgba(255,255,255,0.1), 2px 4px 6px rgba(0,0,0,0.6);
-            z-index: 10;
-            transition: all 0.05s ease;
-            position: absolute;
-            top: 0;
-            /* A tecla preta fica exatamente no meio da divisão entre duas brancas */
-            right: -17px; 
+            z-index: 10; transition: all 0.05s ease; position: absolute; top: 0; right: -17px; 
         }
         .black.active {
             background: linear-gradient(to bottom, #1e293b 0%, #020617 100%);
@@ -86,124 +63,175 @@
         }
 
         /* Elementos de Formulário UI */
-        select, button {
-            background-color: #334155;
-            border: 1px solid #475569;
-            color: #f8fafc;
+        select, button, input[type="range"] {
+            background-color: #334155; border: 1px solid #475569; color: #f8fafc;
             transition: background 0.2s, border-color 0.2s;
         }
-        select:hover, button:hover {
-            background-color: #475569;
-            border-color: #64748b;
+        select:hover, button:hover { background-color: #475569; border-color: #64748b; }
+        select:focus { outline: 2px solid #3b82f6; outline-offset: -1px; }
+        button:active { transform: translateY(1px); }
+
+        /* Estilo para Range Sliders */
+        input[type=range] {
+            -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; outline: none; padding: 0; border: none;
         }
-        select:focus {
-            outline: 2px solid #3b82f6;
-            outline-offset: -1px;
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%;
+            background: #3b82f6; cursor: pointer; transition: transform 0.1s;
         }
-        button:active {
-            transform: translateY(1px);
-        }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+        /* Animação de colapso do painel */
+        .collapsible { transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out; overflow: hidden; }
+        .collapsed { max-height: 0; opacity: 0; margin-top: 0 !important; margin-bottom: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; border: none !important;}
     </style>
 </head>
-<body class="flex flex-col items-center min-h-screen py-10 font-sans">
+<body class="flex flex-col items-center min-h-screen py-6 font-sans">
 
-    <div class="max-w-6xl w-full mx-auto px-4 flex flex-col gap-6">
+    <div class="max-w-6xl w-full mx-auto px-4 flex flex-col gap-4">
         
-        <!-- Cabeçalho e Status -->
+        <!-- Cabeçalho -->
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
-                <h1 class="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
+                <h1 class="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
                     Teclado MIDI Online
                 </h1>
-                <p class="text-slate-400 text-sm mt-1">
-                    Conecta-se ao sintetizador interno do seu sistema usando a Web MIDI API.
-                </p>
             </div>
-            <div id="status-indicator" class="flex items-center gap-3 bg-slate-800 px-4 py-2.5 rounded-full border border-slate-700 shadow-lg">
-                <div id="status-dot" class="w-3.5 h-3.5 rounded-full bg-yellow-500 animate-pulse"></div>
-                <span id="status-text" class="text-sm font-medium text-slate-300">Solicitando permissão MIDI...</span>
+            <div class="flex items-center gap-3">
+                <div id="status-indicator" class="flex items-center gap-3 bg-slate-800 px-4 py-2 rounded-full border border-slate-700 shadow-lg">
+                    <div id="status-dot" class="w-3 h-3 rounded-full bg-yellow-500 animate-pulse"></div>
+                    <span id="status-text" class="text-xs font-medium text-slate-300">Aguardando...</span>
+                </div>
+                <!-- Botão de Minimizar UI -->
+                <button id="toggle-ui-btn" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold bg-slate-800 hover:bg-slate-700 border border-slate-600">
+                    <i data-lucide="minimize-2" class="w-4 h-4"></i> Ocultar Controles
+                </button>
             </div>
         </div>
 
-        <!-- Barra de Controles -->
-        <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 flex flex-wrap gap-4 items-end backdrop-blur-sm">
-            <div class="flex-1 min-w-[200px]">
-                <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Entrada (Teclado Externo)</label>
-                <select id="midi-in-select" class="w-full p-2.5 rounded-lg appearance-none cursor-pointer">
-                    <option value="">Nenhum / Apenas QWERTY</option>
-                </select>
-            </div>
-
-            <div class="flex-1 min-w-[200px]">
-                <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Saída MIDI (Banco de Som)</label>
-                <select id="midi-out-select" class="w-full p-2.5 rounded-lg appearance-none cursor-pointer">
-                    <option value="web-synth">Sintetizador Web (Padrão)</option>
-                </select>
-            </div>
-            
-            <div class="flex-1 min-w-[250px]">
-                <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Timbre / Instrumento / Bateria</label>
-                <select id="instrument-select" class="w-full p-2.5 rounded-lg appearance-none cursor-pointer">
-                    <!-- Opções inseridas via JS -->
-                </select>
-            </div>
-
-            <div class="flex flex-col items-center">
-                <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Oitava (<span id="oct-display">4</span>)</label>
-                <div class="flex gap-2">
-                    <button id="oct-down" class="px-4 py-2.5 rounded-lg font-bold text-lg leading-none" title="Descer Oitava">-</button>
-                    <button id="oct-up" class="px-4 py-2.5 rounded-lg font-bold text-lg leading-none" title="Subir Oitava">+</button>
+        <!-- BARRA DE CONTROLES (Minimizável) -->
+        <div id="control-panel" class="collapsible flex flex-col gap-4">
+            <!-- Hardware / I/O -->
+            <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700 flex flex-wrap gap-4 items-end">
+                <div class="flex-1 min-w-[180px]">
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Entrada (Teclado Físico)</label>
+                    <select id="midi-in-select" class="w-full p-2 text-sm rounded appearance-none cursor-pointer">
+                        <option value="">Apenas PC/Mouse</option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-[180px]">
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Saída MIDI</label>
+                    <select id="midi-out-select" class="w-full p-2 text-sm rounded appearance-none cursor-pointer">
+                        <option value="web-synth">Sintetizador Web</option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-[180px]">
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Reverb (Ambiente)</label>
+                    <div class="flex items-center gap-2 h-[36px] bg-slate-700/50 px-3 rounded">
+                        <i data-lucide="waves" class="w-4 h-4 text-slate-400"></i>
+                        <input type="range" id="reverb-slider" min="0" max="100" value="30" class="w-full">
+                    </div>
+                </div>
+                <div class="flex flex-col items-center">
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Oitava Base: <span id="oct-display">4</span></label>
+                    <div class="flex gap-1">
+                        <button id="oct-down" class="px-3 py-1.5 rounded font-bold text-sm bg-slate-700 hover:bg-slate-600">-</button>
+                        <button id="oct-up" class="px-3 py-1.5 rounded font-bold text-sm bg-slate-700 hover:bg-slate-600">+</button>
+                    </div>
                 </div>
             </div>
+
+            <!-- Mixer e Timbragem -->
+            <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700 grid grid-cols-1 md:grid-cols-12 gap-4">
+                
+                <!-- Controles Gerais do Mixer -->
+                <div class="md:col-span-3 border-b md:border-b-0 md:border-r border-slate-700 pb-4 md:pb-0 md:pr-4 flex flex-col gap-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Modo do Teclado</label>
+                        <select id="keyboard-mode" class="w-full p-2 text-sm rounded appearance-none cursor-pointer bg-slate-900 border-slate-600">
+                            <option value="single">Single (Apenas Timbre A)</option>
+                            <option value="layer">Layer (Misturar A + B)</option>
+                            <option value="split">Split (Dividir A / B)</option>
+                        </select>
+                    </div>
+                    <div id="split-control" class="opacity-50 pointer-events-none transition-opacity">
+                        <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Ponto de Divisão (Split)</label>
+                        <select id="split-point" class="w-full p-2 text-sm rounded appearance-none cursor-pointer">
+                            <option value="48">C3 (Nota 48)</option>
+                            <option value="60" selected>C4 (Nota 60 - Dó Central)</option>
+                            <option value="72">C5 (Nota 72)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Timbre A -->
+                <div class="md:col-span-4 flex flex-col gap-2">
+                    <label class="block text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Timbre A (Principal/Direita)</label>
+                    <select id="instrument-a" class="w-full p-2 text-sm rounded appearance-none cursor-pointer border-cyan-700/50"></select>
+                    <div class="flex items-center gap-3 mt-1">
+                        <span class="text-xs text-slate-400">Vol:</span>
+                        <input type="range" id="vol-a" min="0" max="100" value="100" class="flex-1">
+                    </div>
+                </div>
+
+                <!-- Timbre B -->
+                <div class="md:col-span-4 flex flex-col gap-2 opacity-50 transition-opacity" id="panel-timbre-b">
+                    <label class="block text-[10px] font-bold text-purple-400 uppercase tracking-wider">Timbre B (Sub/Esquerda)</label>
+                    <select id="instrument-b" class="w-full p-2 text-sm rounded appearance-none cursor-pointer border-purple-700/50" disabled></select>
+                    <div class="flex items-center gap-3 mt-1">
+                        <span class="text-xs text-slate-400">Vol:</span>
+                        <input type="range" id="vol-b" min="0" max="100" value="80" class="flex-1" disabled>
+                    </div>
+                </div>
+
+            </div>
         </div>
 
-        <!-- Container do Piano (Gerado via JS) -->
-        <div id="piano" class="piano-container pb-4 relative">
+        <!-- Container do Piano (Sempre Visível) -->
+        <div id="piano" class="piano-container pb-4 relative mt-2">
             <!-- As teclas serão renderizadas aqui -->
-        </div>
-
-        <!-- Instruções -->
-        <div class="text-slate-500 text-sm flex justify-between items-start mt-4">
-            <p><strong>Dica de uso:</strong> Clique ou arraste o mouse sobre as teclas, ou use o <strong>Teclado do PC</strong> (fileiras Z/X/C/V... e Q/W/E/R...) para tocar.</p>
-            <p class="text-right max-w-sm">Nota: Se não houver som, verifique se o navegador tem permissão e se seu SO possui um sintetizador MIDI ativo.</p>
         </div>
 
         <!-- Rodapé com Créditos -->
         <footer class="mt-8 text-center text-slate-500 text-sm border-t border-slate-700/50 pt-6 pb-4">
-            <p class="mb-2">Créditos: Desenvolvido pelo professor <strong class="text-slate-300">Glauber Santiago</strong> — DAC/UFSCar</p>
+            <p class="mb-2">Créditos: Desenvolvido pelo professor <strong class="text-slate-300">Glauber Santiago</strong> - DAC/UFSCar</p>
             <p>Websites: 
                 <a href="http://servidores.ufscar.br/glauber/" target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline transition">servidores.ufscar.br/glauber/</a> <span class="mx-2 text-slate-600">|</span> 
                 <a href="https://sites.google.com/view/glauberia" target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline transition">sites.google.com/view/glauberia</a>
             </p>
         </footer>
+
     </div>
 
     <script>
-        // --- 1. CONFIGURAÇÕES E DADOS GERAIS ---
+        // Inicializa Ícones
+        lucide.createIcons();
+
+        // --- 1. CONFIGURAÇÕES, DADOS E ESTADOS ---
         let midiAccess = null;
         let outputPort = null;
         let inputPort = null;
         let currentOctave = 4;
-        let currentProgram = 0; // Padrão: Acoustic Grand Piano
-        let currentChannel = 1; // 1 = Melódico, 10 = Bateria
 
-        const startNote = 21; // A0 (Início de um piano de 88 teclas)
-        const endNote = 108;  // C8 (Fim de um piano de 88 teclas)
-
-        // Mapeamento do teclado do PC para notas (relativo à oitava base)
-        const keyMap = {
-            // Fileira de Baixo (Oitava anterior)
-            'KeyZ': -12, 'KeyS': -11, 'KeyX': -10, 'KeyD': -9, 'KeyC': -8, 'KeyV': -7,
-            'KeyG': -6, 'KeyB': -5, 'KeyH': -4, 'KeyN': -3, 'KeyJ': -2, 'KeyM': -1,
-            'Comma': 0, 'KeyL': 1, 'Period': 2, 'Semicolon': 3, 'Slash': 4,
-            
-            // Fileira de Cima (Oitava atual)
-            'KeyQ': 0, 'Digit2': 1, 'KeyW': 2, 'Digit3': 3, 'KeyE': 4, 'KeyR': 5,
-            'Digit5': 6, 'KeyT': 7, 'Digit6': 8, 'KeyY': 9, 'Digit7': 10, 'KeyU': 11,
-            'KeyI': 12, 'Digit9': 13, 'KeyO': 14, 'Digit0': 15, 'KeyP': 16
+        // Estado do Sintetizador
+        const state = {
+            mode: 'single', // 'single', 'layer', 'split'
+            splitNote: 60,
+            progA: 0,   // Acoustic Grand Piano
+            progB: 48,  // String Ensemble 1
+            volA: 1.0,
+            volB: 0.8,
+            reverb: 0.3
         };
 
-        // Os 128 instrumentos oficiais do Padrão General MIDI traduzidos
+        const startNote = 21; // A0 
+        const endNote = 108;  // C8 
+
+        const keyMap = {
+            'KeyZ': -12, 'KeyS': -11, 'KeyX': -10, 'KeyD': -9, 'KeyC': -8, 'KeyV': -7, 'KeyG': -6, 'KeyB': -5, 'KeyH': -4, 'KeyN': -3, 'KeyJ': -2, 'KeyM': -1, 'Comma': 0, 'KeyL': 1, 'Period': 2, 'Semicolon': 3, 'Slash': 4,
+            'KeyQ': 0, 'Digit2': 1, 'KeyW': 2, 'Digit3': 3, 'KeyE': 4, 'KeyR': 5, 'Digit5': 6, 'KeyT': 7, 'Digit6': 8, 'KeyY': 9, 'Digit7': 10, 'KeyU': 11, 'KeyI': 12, 'Digit9': 13, 'KeyO': 14, 'Digit0': 15, 'KeyP': 16
+        };
+
         const gmInstruments = [
             "Piano Acústico", "Piano Brilhante", "Piano Elétrico Grand", "Piano Honky-tonk", "Piano Elétrico 1", "Piano Elétrico 2", "Cravo", "Clavinete",
             "Celesta", "Glockenspiel", "Caixa de Música", "Vibrafone", "Marimba", "Xilofone", "Sinos Tubulares", "Dulcimer",
@@ -223,7 +251,6 @@
             "Ruído de Traste", "Respiração", "Ondas do Mar", "Canto de Pássaro", "Toque de Telefone", "Helicóptero", "Aplausos", "Tiro de Pistola"
         ];
 
-        // Mapeamento em inglês exigido pela biblioteca Soundfont
         const sfNames = [
             "acoustic_grand_piano", "bright_acoustic_piano", "electric_grand_piano", "honkytonk_piano", "electric_piano_1", "electric_piano_2", "harpsichord", "clavi",
             "celesta", "glockenspiel", "music_box", "vibraphone", "marimba", "xylophone", "tubular_bells", "dulcimer",
@@ -243,228 +270,154 @@
             "guitar_fret_noise", "breath_noise", "seashore", "bird_tweet", "telephone_ring", "helicopter", "applause", "gunshot"
         ];
 
-        // Kits de Bateria do Padrão General MIDI
         const drumKits = [
-            { name: "Standard Kit", pc: 0 },
-            { name: "Room Kit", pc: 8 },
-            { name: "Power Kit", pc: 16 },
-            { name: "Electronic Kit", pc: 24 },
-            { name: "TR-808 Kit", pc: 25 },
-            { name: "Jazz Kit", pc: 32 },
-            { name: "Brush Kit", pc: 40 },
-            { name: "Orchestra Kit", pc: 48 },
-            { name: "SFX Kit", pc: 56 }
+            { name: "Standard Kit", pc: 0 }, { name: "Room Kit", pc: 8 }, { name: "Power Kit", pc: 16 },
+            { name: "Electronic Kit", pc: 24 }, { name: "TR-808 Kit", pc: 25 }, { name: "Jazz Kit", pc: 32 }
         ];
 
-        // --- 2. INICIALIZAÇÃO DA INTERFACE ---
+        // --- 2. RENDERIZAÇÃO DO PIANO E UI MINIMIZÁVEL ---
         
-        // Preencher opções de instrumentos
-        const selectInstrument = document.getElementById('instrument-select');
-        
-        function updateInstrumentList() {
-            selectInstrument.innerHTML = '';
-            
-            // Adiciona os 128 Instrumentos Melódicos
-            gmInstruments.forEach((inst, index) => {
-                const opt = document.createElement('option');
-                opt.value = index; // Valores de 0 a 127
-                opt.text = `${String(index + 1).padStart(3, '0')} - ${inst}`;
-                selectInstrument.appendChild(opt);
-            });
+        // Alternar Visibilidade da UI
+        const toggleBtn = document.getElementById('toggle-ui-btn');
+        const controlPanel = document.getElementById('control-panel');
+        let uiVisible = true;
 
-            // Adiciona um separador visual (opcional)
-            const separator = document.createElement('option');
-            separator.disabled = true;
-            separator.text = "────────── BATERIAS ──────────";
-            selectInstrument.appendChild(separator);
-
-            // Adiciona os Kits de Bateria no final da lista
-            drumKits.forEach((kit, index) => {
-                const opt = document.createElement('option');
-                // Valores a partir de 128 indicam que é bateria
-                opt.value = 128 + index; 
-                opt.text = `Kit Bateria - ${kit.name}`;
-                selectInstrument.appendChild(opt);
-            });
-            
-            currentProgram = 0; // Reseta para Piano
-        }
-        
-        // Inicializa a lista unificada
-        updateInstrumentList();
-
-        // Evento de troca de instrumento / kit
-        selectInstrument.addEventListener('change', (e) => {
-            const val = parseInt(e.target.value);
-            
-            if (val < 128) {
-                // É um instrumento melódico normal
-                currentChannel = 1;
-                currentProgram = val;
+        toggleBtn.addEventListener('click', () => {
+            uiVisible = !uiVisible;
+            if (uiVisible) {
+                controlPanel.classList.remove('collapsed');
+                toggleBtn.innerHTML = '<i data-lucide="minimize-2" class="w-4 h-4"></i> Ocultar Controles';
             } else {
-                // É um kit de bateria (índice 128 em diante)
-                currentChannel = 10;
-                currentProgram = drumKits[val - 128].pc;
+                controlPanel.classList.add('collapsed');
+                toggleBtn.innerHTML = '<i data-lucide="maximize-2" class="w-4 h-4"></i> Mostrar Controles';
             }
-            
-            changeProgram(currentProgram);
+            lucide.createIcons();
         });
 
-        // Função auxiliar para retornar qual tecla física toca qual nota atual
-        function getKeyLabel(note) {
-            const baseNote = (currentOctave + 1) * 12;
-            for (const [key, offset] of Object.entries(keyMap)) {
-                if (baseNote + offset === note) {
-                    return key.replace('Key', '').replace('Digit', '').replace('Comma', ',').replace('Period', '.').replace('Slash','/').replace('Semicolon',';');
-                }
-            }
-            return '';
-        }
-
-        // Renderizar o Piano na Tela
         const pianoContainer = document.getElementById('piano');
         let pianoHTML = '';
-        
         for (let i = startNote; i <= endNote; i++) {
-            // Descobre se a nota atual é preta verificando o resto da divisão por 12
             const isBlack = [1, 3, 6, 8, 10].includes(i % 12);
-            
             if (!isBlack) {
-                // Se for tecla branca, verifica se a *próxima* nota é uma preta
                 const nextIsBlack = [1, 3, 6, 8, 10].includes((i + 1) % 12);
-                
                 let blackHTML = '';
                 if (nextIsBlack && (i + 1) <= endNote) {
-                     blackHTML = `
-                        <div class="key black" data-note="${i+1}">
-                            <span class="absolute bottom-2 w-full text-center text-[10px] opacity-70 pointer-events-none text-slate-300 font-bold"></span>
-                        </div>`;
+                     blackHTML = `<div class="key black" data-note="${i+1}"></div>`;
                 }
-                
-                // Embrulha a tecla branca e sua tecla preta correspondente em um container
                 pianoHTML += `
                     <div class="relative flex-none">
-                        <div class="key white" data-note="${i}">
-                            <span class="absolute bottom-4 w-full text-center text-xs opacity-50 pointer-events-none text-slate-600 font-bold"></span>
-                        </div>
+                        <div class="key white" data-note="${i}"><span class="absolute bottom-4 w-full text-center text-[10px] opacity-40 font-bold text-slate-800 pointer-events-none"></span></div>
                         ${blackHTML}
-                    </div>
-                `;
+                    </div>`;
             }
         }
         pianoContainer.innerHTML = pianoHTML;
 
-        // Atualiza as letrinhas sobre as teclas
         function updateLabels() {
-            document.querySelectorAll('.key').forEach(keyEl => {
+            document.querySelectorAll('.key.white').forEach(keyEl => {
                 const note = parseInt(keyEl.dataset.note);
-                const label = getKeyLabel(note);
+                const baseNote = (currentOctave + 1) * 12;
+                let label = '';
+                for (const [key, offset] of Object.entries(keyMap)) {
+                    if (baseNote + offset === note) {
+                        label = key.replace('Key', '').replace('Digit', '').replace('Comma', ',').replace('Period', '.');
+                        break;
+                    }
+                }
                 const span = keyEl.querySelector('span');
                 if (span) span.textContent = label;
             });
             document.getElementById('oct-display').textContent = currentOctave;
         }
         updateLabels();
-
-        // Centraliza a visão na oitava 4 (Dó central = 60)
         setTimeout(() => {
             const middleC = document.querySelector('.key[data-note="60"]');
             if (middleC) middleC.scrollIntoView({ behavior: 'smooth', inline: 'center' });
         }, 300);
 
-        // Controles de Oitava
-        document.getElementById('oct-up').addEventListener('click', () => {
-            if (currentOctave < 7) { currentOctave++; updateLabels(); }
-        });
-        document.getElementById('oct-down').addEventListener('click', () => {
-            if (currentOctave > 1) { currentOctave--; updateLabels(); }
-        });
-
-
-        // --- 3. LÓGICA DE WEB MIDI API E ÁUDIO FALLBACK ---
-
-        // Sintetizador Web de Fallback (Agora usando Soundfonts com timbres reais)
+        // --- 3. ÁUDIO WEB (REVERB E TIMBRES) ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
-        let audioCtx = AudioContext ? new AudioContext() : null;
-        let sfInstrument = null;
-        let activeSfNotes = {};
+        let audioCtx = null;
+        
+        // Nodos Globais
+        let masterGain, reverbNode, dryGain, wetGain;
 
-        // --- DADOS PARA OS KITS DE BATERIA REAIS ---
-        const drumSamplesURLs = {
-            kick: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/kick.wav',
-            snare: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/snare.wav',
-            hihat: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/hihat.wav',
-            openhat: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/openhat.wav',
-            ride: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/ride.wav',
-            crash: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/crash.wav',
-            tom: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/tom.wav',
-            clap: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/clap.wav',
-            tink: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/tink.wav'
-        };
-        const drumBuffers = {};
-        let isDrumKitLoaded = false;
+        // Estado dos Instrumentos Carregados
+        const loadedSF = {}; // Cache de Soundfonts: { programNumber: sfInstance }
+        let activeNotesA = {};
+        let activeNotesB = {};
+        let activeDrumNotes = {};
 
-        async function loadDrumKit() {
-            if (!audioCtx) audioCtx = new AudioContext();
-            if (audioCtx.state === 'suspended') {
-                try { await audioCtx.resume(); } catch(e) {}
+        // Cria Resposta a Impulso Sintética para o Reverb (Para não precisar baixar arquivo externo)
+        function createReverbImpulse(context, duration = 2.0, decay = 2.0) {
+            const rate = context.sampleRate;
+            const length = rate * duration;
+            const impulse = context.createBuffer(2, length, rate);
+            const impulseL = impulse.getChannelData(0);
+            const impulseR = impulse.getChannelData(1);
+            for (let i = 0; i < length; i++) {
+                const n = 1 - i / length;
+                impulseL[i] = (Math.random() * 2 - 1) * Math.pow(n, decay);
+                impulseR[i] = (Math.random() * 2 - 1) * Math.pow(n, decay);
             }
-            if (isDrumKitLoaded) {
-                setStatus('Banco de Bateria (Kit Acústico) Pronto', 'ok');
-                return;
-            }
+            return impulse;
+        }
+
+        function initAudioEngine() {
+            if (audioCtx) return;
+            audioCtx = new AudioContext();
+
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 1.0;
+
+            // Setup do Reverb
+            reverbNode = audioCtx.createConvolver();
+            reverbNode.buffer = createReverbImpulse(audioCtx, 2.5, 3.0);
             
-            setStatus('Baixando samples de bateria de estúdio...', 'loading');
+            dryGain = audioCtx.createGain();
+            wetGain = audioCtx.createGain();
+            
+            dryGain.gain.value = 1.0;
+            wetGain.gain.value = state.reverb; // Mix de Reverb Inicial
+
+            // Roteamento
+            masterGain.connect(dryGain);
+            masterGain.connect(reverbNode);
+            reverbNode.connect(wetGain);
+            
+            dryGain.connect(audioCtx.destination);
+            wetGain.connect(audioCtx.destination);
+        }
+
+        async function loadLayerSound(progNum) {
+            if (!audioCtx) initAudioEngine();
+            if (audioCtx.state === 'suspended') await audioCtx.resume();
+            
+            if (progNum >= 128) {
+                // É bateria
+                return true; 
+            }
+
+            if (loadedSF[progNum]) return true; // Já baixado
+
+            setStatus(`Baixando timbre ${progNum}...`, 'loading');
             try {
-                const promises = Object.entries(drumSamplesURLs).map(async ([name, url]) => {
-                    const response = await fetch(url);
-                    const arrayBuffer = await response.arrayBuffer();
-                    drumBuffers[name] = await audioCtx.decodeAudioData(arrayBuffer);
+                // A biblioteca Soundfont permite passar o destination node (nosso masterGain com reverb)
+                const inst = await Soundfont.instrument(audioCtx, sfNames[progNum], { 
+                    soundfont: 'MusyngKite',
+                    destination: masterGain
                 });
-                await Promise.all(promises);
-                isDrumKitLoaded = true;
-                setStatus('Banco de Bateria (Kit Acústico) Carregado', 'ok');
+                loadedSF[progNum] = inst;
+                setStatus('Timbres Prontos', 'ok');
+                return true;
             } catch (e) {
-                console.error("Erro ao baixar bateria:", e);
-                setStatus('Erro ao carregar bateria (Usando Synth Simples)', 'error');
+                console.error("Erro ao carregar sf", e);
+                setStatus('Erro no timbre', 'error');
+                return false;
             }
         }
 
-        async function loadSoundfont(progNum) {
-            if (!audioCtx) audioCtx = new AudioContext();
-            if (audioCtx.state === 'suspended') {
-                try { await audioCtx.resume(); } catch(e) { /* Ignora alerta de autoplay inicial do navegador */ }
-            }
-            
-            setStatus(`Baixando timbre: ${gmInstruments[progNum]}...`, 'loading');
-            
-            try {
-                // Carrega o instrumento (samples reais do General MIDI)
-                sfInstrument = await Soundfont.instrument(audioCtx, sfNames[progNum], { soundfont: 'MusyngKite' });
-                setStatus('Timbre Carregado (Sintetizador Web)', 'ok');
-            } catch (e) {
-                console.error(e);
-                setStatus('Erro ao carregar timbre da internet', 'error');
-            }
-        }
-
-        function playAudioSynth(note) {
-            if (!audioCtx || !sfInstrument) return;
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            if (activeSfNotes[note]) return; // Evita engolir a nota se repetida muito rápido
-
-            // Toca o sample real
-            activeSfNotes[note] = sfInstrument.play(note, audioCtx.currentTime, { gain: 1.5 });
-        }
-
-        function stopAudioSynth(note) {
-            if (activeSfNotes[note]) {
-                activeSfNotes[note].stop(audioCtx.currentTime + 0.1); // Solta a tecla suavemente
-                delete activeSfNotes[note];
-            }
-        }
-
-        // Função auxiliar de ruído para bateria eletrônica
+        // --- SISTEMA DE BATERIA (SIMPLIFICADO E DIRECIONADO AO MASTER GAIN) ---
         function playNoise(time, filterType, freq, decay, gainValue = 1) {
             const bufferSize = audioCtx.sampleRate * decay;
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
@@ -474,312 +427,201 @@
             const noise = audioCtx.createBufferSource();
             noise.buffer = buffer;
             const filter = audioCtx.createBiquadFilter();
-            filter.type = filterType;
-            filter.frequency.value = freq;
+            filter.type = filterType; filter.frequency.value = freq;
             const gainNode = audioCtx.createGain();
             
-            noise.connect(filter);
-            filter.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
+            noise.connect(filter); filter.connect(gainNode);
+            gainNode.connect(masterGain); // Conecta ao FX chain
             
             gainNode.gain.setValueAtTime(gainValue, time);
             gainNode.gain.exponentialRampToValueAtTime(0.01, time + decay);
             noise.start(time);
         }
 
-        // Sintetizador dedicado para Electronic e TR-808 Kit (PC 24 e 25)
-        function play808Kit(note) {
+        function playSynthDrum(note, velocity = 100) {
+            if (!audioCtx) return;
             const time = audioCtx.currentTime;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain);
-            gain.connect(audioCtx.destination);
+            gain.connect(masterGain); // Conecta ao FX chain
 
-            if (note === 35 || note === 36) { // 808 Kick
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(150, time);
-                osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.8);
-                gain.gain.setValueAtTime(1.5, time);
-                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.8);
-                osc.start(time);
-                osc.stop(time + 0.8);
-            } else if (note === 38 || note === 40) { // 808 Snare
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(250, time);
+            const vGain = velocity / 127;
+
+            if (note === 35 || note === 36) { // Kick
+                osc.type = 'sine'; osc.frequency.setValueAtTime(150, time);
+                osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
+                gain.gain.setValueAtTime(1.5 * vGain, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+                osc.start(time); osc.stop(time + 0.5);
+            } else if (note === 38 || note === 40) { // Snare
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(250, time);
                 osc.frequency.exponentialRampToValueAtTime(100, time + 0.2);
-                gain.gain.setValueAtTime(0.8, time);
-                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
-                osc.start(time);
-                osc.stop(time + 0.2);
-                playNoise(time, 'highpass', 2000, 0.25, 0.6); // Snare wire
-            } else if (note === 42 || note === 44) { // Closed Hat
-                playNoise(time, 'bandpass', 8000, 0.1, 0.8);
-            } else if (note === 46) { // Open Hat
-                playNoise(time, 'bandpass', 8000, 0.4, 0.8);
-            } else if (note >= 41 && note <= 50) { // Toms
-                const f = 150 + (note - 40)*15;
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(f, time);
-                osc.frequency.exponentialRampToValueAtTime(f/2, time + 0.4);
-                gain.gain.setValueAtTime(1.2, time);
-                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
-                osc.start(time);
-                osc.stop(time + 0.4);
-            } else { // Crash/Ride/Others
-                playNoise(time, 'highpass', 4000, 0.8, 0.7);
+                gain.gain.setValueAtTime(0.8 * vGain, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+                osc.start(time); osc.stop(time + 0.2);
+                playNoise(time, 'highpass', 2000, 0.25, 0.6 * vGain); 
+            } else if (note === 42 || note === 44) { playNoise(time, 'bandpass', 8000, 0.1, 0.8 * vGain); } // HH Closed
+            else if (note === 46) { playNoise(time, 'bandpass', 8000, 0.4, 0.8 * vGain); } // HH Open
+            else { playNoise(time, 'highpass', 4000, 0.8, 0.7 * vGain); } // Crash/Ride/Outros
+        }
+
+        // --- ROTEADOR PRINCIPAL DE NOTAS (LIDA COM CAMADAS E SPLIT) ---
+
+        function triggerLayer(layerKey, note, velocity) {
+            const prog = layerKey === 'A' ? state.progA : state.progB;
+            const vol = layerKey === 'A' ? state.volA : state.volB;
+            const activeNotesDict = layerKey === 'A' ? activeNotesA : activeNotesB;
+            
+            // Calcula o ganho real baseado no Slider de Volume da Camada + Velocidade MIDI
+            const finalGain = vol * (velocity / 127);
+
+            if (prog >= 128) {
+                // Bateria
+                playSynthDrum(note, velocity * vol); 
+            } else {
+                // Instrumento Melódico
+                if (loadedSF[prog] && !activeNotesDict[note]) {
+                    // Toca a nota na biblioteca Soundfont, passando o ganho modificado
+                    activeNotesDict[note] = loadedSF[prog].play(note, audioCtx.currentTime, { gain: finalGain });
+                }
             }
         }
 
-        // Toca os samples reais de bateria ou redireciona pro synth eletrônico
-        function playWebDrum(note) {
-            if (!audioCtx) return;
+        function releaseLayer(layerKey, note) {
+            const activeNotesDict = layerKey === 'A' ? activeNotesA : activeNotesB;
+            if (activeNotesDict[note]) {
+                activeNotesDict[note].stop(audioCtx.currentTime + 0.1);
+                delete activeNotesDict[note];
+            }
+        }
+
+        function playNote(note, velocity = 100) {
+            if (!audioCtx) initAudioEngine();
             if (audioCtx.state === 'suspended') audioCtx.resume();
-            
-            // Se escolheu kit Eletrônico (24) ou TR-808 (25), usa o Synth dedicado
-            if (currentProgram === 24 || currentProgram === 25) {
-                play808Kit(note);
-                return;
-            }
 
-            // Para os outros (Standard, Room, Jazz, etc), usa os samples reais
-            if (!isDrumKitLoaded) {
-                // Fallback de emergência se o áudio não baixar
-                play808Kit(note);
-                return;
-            }
-
-            let bufferName = null;
-            let playbackRate = 1.0;
-
-            // Mapeamento General MIDI (Nota vs Peça da Bateria)
-            switch(note) {
-                case 35: case 36: bufferName = 'kick'; break;
-                case 37: bufferName = 'tink'; playbackRate = 0.8; break; // Rimshot
-                case 38: case 40: bufferName = 'snare'; break;
-                case 39: bufferName = 'clap'; break;
-                case 42: case 44: bufferName = 'hihat'; break;
-                case 46: bufferName = 'openhat'; break;
-                case 49: case 55: case 57: bufferName = 'crash'; break;
-                case 51: case 53: case 59: bufferName = 'ride'; break;
-                // Os Toms usam a mesma gravação com pitch dinâmico
-                case 41: bufferName = 'tom'; playbackRate = 0.6; break; // Low Floor Tom
-                case 43: bufferName = 'tom'; playbackRate = 0.75; break; // High Floor Tom
-                case 45: bufferName = 'tom'; playbackRate = 0.9; break; // Low Tom
-                case 47: bufferName = 'tom'; playbackRate = 1.0; break; // Low-Mid Tom
-                case 48: bufferName = 'tom'; playbackRate = 1.1; break; // Hi-Mid Tom
-                case 50: bufferName = 'tom'; playbackRate = 1.25; break; // High Tom
-                default: 
-                    // Outras notas percussivas (cowbell, agogo, etc)
-                    bufferName = 'tink';
-                    playbackRate = Math.pow(2, (note - 56) / 12);
-                    break;
-            }
-
-            if (bufferName && drumBuffers[bufferName]) {
-                const source = audioCtx.createBufferSource();
-                source.buffer = drumBuffers[bufferName];
-                source.playbackRate.value = playbackRate;
-                
-                const gain = audioCtx.createGain();
-                gain.gain.value = 1.2; // Volume master das peças
-                
-                source.connect(gain);
-                gain.connect(audioCtx.destination);
-                source.start(0);
-            }
-        }
-
-        // Configura Indicador de Status Visual
-        function setStatus(msg, state) {
-            document.getElementById('status-text').textContent = msg;
-            const dot = document.getElementById('status-dot');
-            dot.className = 'w-3.5 h-3.5 rounded-full ' + 
-                (state === 'ok' ? 'bg-emerald-500' : state === 'error' ? 'bg-red-500' : 'bg-yellow-500 animate-pulse');
-        }
-
-        // Atualiza a lista dropdown de portas de entrada e saída MIDI
-        function updateDevices() {
-            // Entradas (Teclados Físicos Externos)
-            const selectIn = document.getElementById('midi-in-select');
-            const currentInVal = selectIn.value;
-            selectIn.innerHTML = '<option value="">Nenhum / Apenas QWERTY</option>';
-            
-            let foundIn = false;
-            for (let input of midiAccess.inputs.values()) {
-                const opt = document.createElement('option');
-                opt.value = input.id;
-                opt.text = input.name;
-                selectIn.appendChild(opt);
-                if (currentInVal === input.id || (!currentInVal && !foundIn)) {
-                    foundIn = true;
-                    opt.selected = true;
-                    inputPort = input;
-                    inputPort.onmidimessage = onMidiMessage;
-                }
-            }
-            if (!foundIn) inputPort = null;
-
-            // Saídas (Sintetizadores MIDI)
-            const selectOut = document.getElementById('midi-out-select');
-            const currentOutVal = selectOut.value;
-            selectOut.innerHTML = '<option value="web-synth">Sintetizador Web (Padrão)</option>';
-            
-            let foundOut = false;
-            for (let output of midiAccess.outputs.values()) {
-                const opt = document.createElement('option');
-                opt.value = output.id;
-                opt.text = output.name;
-                selectOut.appendChild(opt);
-                if (currentOutVal === output.id) {
-                    foundOut = true;
-                    opt.selected = true;
-                }
-            }
-            if (!foundOut && currentOutVal !== 'web-synth') {
-                outputPort = null;
-                selectOut.value = 'web-synth';
-            }
-
-            if (!outputPort) {
-                if (currentChannel === 10) {
-                    loadDrumKit();
-                } else {
-                    loadSoundfont(currentProgram);
-                }
-            } else {
-                setStatus('MIDI Pronto', 'ok');
-            }
-        }
-
-        // Trata mensagens de um teclado MIDI externo
-        function onMidiMessage(msg) {
-            const [status, note, velocity] = msg.data;
-            const cmd = status >> 4;
-            // 9 = Note On, 8 = Note Off
-            if (cmd === 9 && velocity > 0) {
-                playNote(note);
-            } else if (cmd === 8 || (cmd === 9 && velocity === 0)) {
-                stopNote(note);
-            }
-        }
-
-        // Solicita acesso à API
-        async function initMIDI() {
-            if (navigator.requestMIDIAccess) {
-                try {
-                    midiAccess = await navigator.requestMIDIAccess({ sysex: false });
-                    updateDevices();
-                    midiAccess.onstatechange = updateDevices; // Atualiza se plugar/desplugar algo
-                } catch (err) {
-                    console.error('Erro de permissão MIDI (Esperado em ambientes seguros):', err);
-                    setStatus('Sem permissão MIDI (Usando Synth Web)', 'error');
-                    // Se a permissão for negada, força o carregamento do som da web
-                    if (currentChannel === 10) loadDrumKit(); else loadSoundfont(currentProgram);
-                }
-            } else {
-                setStatus('Web MIDI não suportada (Usando Synth Web)', 'error');
-                // Se não for suportado, também força o carregamento
-                if (currentChannel === 10) loadDrumKit(); else loadSoundfont(currentProgram);
-            }
-        }
-
-        document.getElementById('midi-out-select').addEventListener('change', (e) => {
-            const val = e.target.value;
-            if (val === 'web-synth') {
-                outputPort = null;
-                // Força carregar timbre na web se escolhido
-                if (currentChannel === 10) loadDrumKit(); else loadSoundfont(currentProgram);
-            } else if (midiAccess) {
-                outputPort = midiAccess.outputs.get(val) || null;
-                if (outputPort) changeProgram(currentProgram);
-            }
-        });
-
-        document.getElementById('midi-in-select').addEventListener('change', (e) => {
-            if (inputPort) inputPort.onmidimessage = null; // Remove listener do anterior
-            const val = e.target.value;
-            if (val && midiAccess) {
-                inputPort = midiAccess.inputs.get(val) || null;
-                if (inputPort) inputPort.onmidimessage = onMidiMessage;
-            } else {
-                inputPort = null;
-            }
-        });
-
-        // Inicia
-        initMIDI();
-
-
-        // --- 4. FUNÇÕES DE ENVIO DE SINAL MIDI E ÁUDIO ---
-
-        function playNote(note) {
-            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-
+            // Hardware MIDI Externo (Sintetizador do usuário)
             if (outputPort) {
-                // Mensagem Note On [10010000 = 0x90 Canal 1, 10011001 = 0x99 Canal 10], Nota, Velocity
-                const cmd = currentChannel === 10 ? 0x99 : 0x90;
-                outputPort.send([cmd, note, 100]);
-            } else {
-                if (currentChannel === 10) {
-                    playWebDrum(note);
-                } else {
-                    playAudioSynth(note);
+                // Manda Timbre A pro Canal 1, Timbre B pro Canal 2 (se em modo layer/split)
+                if (state.mode === 'single' || state.mode === 'layer') {
+                    outputPort.send([0x90, note, velocity]); // Ch 1
+                    if (state.mode === 'layer') outputPort.send([0x91, note, velocity]); // Ch 2
+                } else if (state.mode === 'split') {
+                    if (note >= state.splitNote) outputPort.send([0x90, note, velocity]);
+                    else outputPort.send([0x91, note, velocity]);
+                }
+            } 
+            // Web Sintetizador com FX e Dynamics
+            else {
+                if (state.mode === 'single') {
+                    triggerLayer('A', note, velocity);
+                } else if (state.mode === 'layer') {
+                    triggerLayer('A', note, velocity);
+                    triggerLayer('B', note, velocity);
+                } else if (state.mode === 'split') {
+                    if (note >= state.splitNote) triggerLayer('A', note, velocity);
+                    else triggerLayer('B', note, velocity);
                 }
             }
+            
+            // UI visual
             const keyEl = document.querySelector(`.key[data-note="${note}"]`);
             if (keyEl) keyEl.classList.add('active');
         }
 
         function stopNote(note) {
             if (outputPort) {
-                // Mensagem Note Off [10000000 = 0x80 Canal 1, 10001001 = 0x89 Canal 10], Nota, Velocity zero
-                const cmd = currentChannel === 10 ? 0x89 : 0x80;
-                outputPort.send([cmd, note, 0]);
+                outputPort.send([0x80, note, 0]);
+                outputPort.send([0x81, note, 0]);
             } else {
-                if (currentChannel !== 10) {
-                    stopAudioSynth(note);
-                }
+                releaseLayer('A', note);
+                releaseLayer('B', note);
             }
             const keyEl = document.querySelector(`.key[data-note="${note}"]`);
             if (keyEl) keyEl.classList.remove('active');
         }
 
-        function changeProgram(programNumber) {
-            if (outputPort) {
-                // Mensagem Program Change [11000000 = 0xC0 Canal 1, 11001001 = 0xC9 Canal 10], Número do Programa
-                const cmd = currentChannel === 10 ? 0xC9 : 0xC0;
-                outputPort.send([cmd, programNumber]);
-            } else {
-                if (currentChannel !== 10) {
-                    // Carrega o novo timbre para tocar usando o som do navegador
-                    loadSoundfont(programNumber);
-                } else {
-                    // Carrega os samples de bateria de estúdio
-                    loadDrumKit();
-                    if (programNumber === 24 || programNumber === 25) {
-                        setStatus('Banco de Bateria (Synth TR-808)', 'ok');
-                    }
-                }
-            }
+        // --- 4. CONTROLES DE UI E EVENTOS ---
+
+        function populateInstruments(selectId, defaultProg) {
+            const select = document.getElementById(selectId);
+            select.innerHTML = '';
+            gmInstruments.forEach((inst, index) => {
+                select.appendChild(new Option(`${String(index + 1).padStart(3, '0')} - ${inst}`, index));
+            });
+            const sep = new Option("── BATERIAS ──", ""); sep.disabled = true; select.appendChild(sep);
+            drumKits.forEach((kit, index) => {
+                select.appendChild(new Option(`Kit - ${kit.name}`, 128 + index));
+            });
+            select.value = defaultProg;
         }
 
+        populateInstruments('instrument-a', state.progA);
+        populateInstruments('instrument-b', state.progB);
 
-        // --- 5. INTERAÇÃO (MOUSE E TECLADO FÍSICO) ---
+        // Eventos dos Controles
+        document.getElementById('instrument-a').addEventListener('change', (e) => {
+            state.progA = parseInt(e.target.value);
+            loadLayerSound(state.progA);
+            if (outputPort) outputPort.send([0xC0, state.progA < 128 ? state.progA : 0]); // P.Change Ch 1
+        });
         
-        // Mouse / Toque
+        document.getElementById('instrument-b').addEventListener('change', (e) => {
+            state.progB = parseInt(e.target.value);
+            if (state.mode !== 'single') loadLayerSound(state.progB);
+            if (outputPort) outputPort.send([0xC1, state.progB < 128 ? state.progB : 0]); // P.Change Ch 2
+        });
+
+        document.getElementById('vol-a').addEventListener('input', (e) => { state.volA = e.target.value / 100; });
+        document.getElementById('vol-b').addEventListener('input', (e) => { state.volB = e.target.value / 100; });
+        
+        document.getElementById('reverb-slider').addEventListener('input', (e) => {
+            state.reverb = e.target.value / 100;
+            if (wetGain) wetGain.gain.value = state.reverb;
+        });
+
+        document.getElementById('split-point').addEventListener('change', (e) => {
+            state.splitNote = parseInt(e.target.value);
+        });
+
+        // Alternância de Modos
+        document.getElementById('keyboard-mode').addEventListener('change', (e) => {
+            state.mode = e.target.value;
+            const panelB = document.getElementById('panel-timbre-b');
+            const splitCtrl = document.getElementById('split-control');
+            const selB = document.getElementById('instrument-b');
+            const volB = document.getElementById('vol-b');
+
+            if (state.mode === 'single') {
+                panelB.classList.add('opacity-50');
+                splitCtrl.classList.add('opacity-50', 'pointer-events-none');
+                selB.disabled = true; volB.disabled = true;
+            } else {
+                panelB.classList.remove('opacity-50');
+                selB.disabled = false; volB.disabled = false;
+                loadLayerSound(state.progB); // Assegura que o B está baixado
+                
+                if (state.mode === 'split') {
+                    splitCtrl.classList.remove('opacity-50', 'pointer-events-none');
+                } else {
+                    splitCtrl.classList.add('opacity-50', 'pointer-events-none');
+                }
+            }
+        });
+
+        // --- 5. ENTRADAS DE TECLADO PC E MOUSE ---
+        document.getElementById('oct-up').addEventListener('click', () => { if (currentOctave < 7) { currentOctave++; updateLabels(); } });
+        document.getElementById('oct-down').addEventListener('click', () => { if (currentOctave > 1) { currentOctave--; updateLabels(); } });
+
         let isMouseDown = false;
         let currentMouseNote = null;
-
         pianoContainer.addEventListener('mousedown', (e) => {
             isMouseDown = true;
             const key = e.target.closest('.key');
             if (key) {
                 const note = parseInt(key.dataset.note);
-                playNote(note);
+                playNote(note, 100); // Mouse tem velocidade fixa 100
                 currentMouseNote = note;
             }
         });
-
         pianoContainer.addEventListener('mouseover', (e) => {
             if (!isMouseDown) return;
             const key = e.target.closest('.key');
@@ -787,58 +629,113 @@
                 const note = parseInt(key.dataset.note);
                 if (note !== currentMouseNote) {
                     if (currentMouseNote !== null) stopNote(currentMouseNote);
-                    playNote(note);
+                    playNote(note, 100);
                     currentMouseNote = note;
                 }
             }
         });
-
         pianoContainer.addEventListener('mouseout', (e) => {
             if (!isMouseDown) return;
             const key = e.target.closest('.key');
             if (key) {
                 const note = parseInt(key.dataset.note);
-                if (note === currentMouseNote) {
-                    stopNote(note);
-                    currentMouseNote = null;
-                }
+                if (note === currentMouseNote) { stopNote(note); currentMouseNote = null; }
             }
         });
-
         window.addEventListener('mouseup', () => {
             isMouseDown = false;
-            if (currentMouseNote !== null) {
-                stopNote(currentMouseNote);
-                currentMouseNote = null;
-            }
+            if (currentMouseNote !== null) { stopNote(currentMouseNote); currentMouseNote = null; }
         });
 
-        // Teclado do PC
-        const activePCNotes = new Map(); // Mapeia código da tecla para nota, evitando bugs ao trocar de oitava segurando tecla
-
+        const activePCNotes = new Map();
         window.addEventListener('keydown', (e) => {
-            if (e.repeat) return; // Evita metralhadora de sons se segurar tecla
-            if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return; // Ignora se estiver num campo
-
+            if (e.repeat || ['INPUT', 'SELECT'].includes(e.target.tagName)) return;
             const offset = keyMap[e.code];
             if (offset !== undefined) {
-                const baseNote = (currentOctave + 1) * 12;
-                const note = baseNote + offset;
-                
+                const note = ((currentOctave + 1) * 12) + offset;
                 if (note >= startNote && note <= endNote) {
-                    playNote(note);
+                    playNote(note, 100);
                     activePCNotes.set(e.code, note);
                 }
             }
         });
-
         window.addEventListener('keyup', (e) => {
             if (activePCNotes.has(e.code)) {
-                const note = activePCNotes.get(e.code);
-                stopNote(note);
+                stopNote(activePCNotes.get(e.code));
                 activePCNotes.delete(e.code);
             }
         });
+
+        // --- 6. MIDI API (SENSIBILIDADE A VELOCITY IMPLEMENTADA AQUI) ---
+        function setStatus(msg, state) {
+            document.getElementById('status-text').textContent = msg;
+            document.getElementById('status-dot').className = 'w-3 h-3 rounded-full ' + (state === 'ok' ? 'bg-emerald-500' : state === 'error' ? 'bg-red-500' : 'bg-yellow-500 animate-pulse');
+        }
+
+        function onMidiMessage(msg) {
+            const [status, note, velocity] = msg.data;
+            const cmd = status >> 4;
+            // Lê o parâmetro Velocity nativo do hardware (0-127) e passa para as funções de áudio
+            if (cmd === 9 && velocity > 0) {
+                playNote(note, velocity); 
+            } else if (cmd === 8 || (cmd === 9 && velocity === 0)) {
+                stopNote(note);
+            }
+        }
+
+        function updateDevices() {
+            const selectIn = document.getElementById('midi-in-select');
+            selectIn.innerHTML = '<option value="">Apenas PC/Mouse</option>';
+            for (let input of midiAccess.inputs.values()) {
+                selectIn.appendChild(new Option(input.name, input.id));
+                if (!inputPort) { inputPort = input; inputPort.onmidimessage = onMidiMessage; selectIn.value = input.id; }
+            }
+
+            const selectOut = document.getElementById('midi-out-select');
+            selectOut.innerHTML = '<option value="web-synth">Sintetizador Web</option>';
+            for (let output of midiAccess.outputs.values()) {
+                selectOut.appendChild(new Option(output.name, output.id));
+            }
+            setStatus('MIDI Conectado', 'ok');
+        }
+
+        async function initMIDI() {
+            if (navigator.requestMIDIAccess) {
+                try {
+                    midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+                    updateDevices();
+                    midiAccess.onstatechange = updateDevices;
+                } catch (err) {
+                    setStatus('Sem permissão MIDI', 'error');
+                }
+            } else { setStatus('MIDI não suportado', 'error'); }
+            
+            // Carrega o primeiro timbre por padrão (se interação já ocorreu)
+            loadLayerSound(state.progA);
+        }
+
+        document.getElementById('midi-in-select').addEventListener('change', (e) => {
+            if (inputPort) inputPort.onmidimessage = null;
+            inputPort = e.target.value ? midiAccess.inputs.get(e.target.value) : null;
+            if (inputPort) inputPort.onmidimessage = onMidiMessage;
+        });
+        
+        document.getElementById('midi-out-select').addEventListener('change', (e) => {
+            outputPort = e.target.value !== 'web-synth' ? midiAccess.outputs.get(e.target.value) : null;
+            if (outputPort) {
+                outputPort.send([0xC0, state.progA < 128 ? state.progA : 0]); // Configura hardware externo (Ch 1)
+            }
+        });
+
+        // Inicializa a API
+        initMIDI();
+
+        // Workaround de Autoplay Policy para garantir que o contexto inicie ao primeiro clique na tela
+        document.body.addEventListener('click', () => {
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }, { once: true });
 
     </script>
 </body>
