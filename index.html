@@ -129,17 +129,17 @@
             background-color: #e5e7eb !important;
         }
         body.high-contrast .white {
-            background: #ffffff !important;
+            background: #22c55e !important; /* Verde */
             border: 2px solid #000000 !important;
             box-shadow: none !important;
         }
-        body.high-contrast .white.active { background: #cbd5e1 !important; transform: none; }
+        body.high-contrast .white.active { background: #064e3b !important; transform: none; } /* Verde bem mais escuro ao clicar */
         body.high-contrast .black {
-            background: #000000 !important;
+            background: #ef4444 !important; /* Vermelho */
             border: 2px solid #000000 !important;
             box-shadow: none !important;
         }
-        body.high-contrast .black.active { background: #334155 !important; transform: none; }
+        body.high-contrast .black.active { background: #7f1d1d !important; transform: none; } /* Vermelho bem mais escuro ao clicar */
         body.high-contrast a.text-blue-400 { color: #2563eb !important; font-weight: bold; }
         body.high-contrast input[type=range]::-webkit-slider-thumb { background: #000000; border: 2px solid #ffffff; }
         body.high-contrast input[type=range] { background: #cbd5e1 !important; }
@@ -189,12 +189,19 @@
                         <option value="web-synth">Sintetizador Web</option>
                     </select>
                 </div>
-                <div class="flex-1 min-w-[280px] flex gap-4">
+                <div class="flex-1 min-w-[320px] flex gap-4">
                     <div class="flex-1">
-                        <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Reverb (Ambiente)</label>
+                        <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Reverb</label>
                         <div class="flex items-center gap-2 h-[36px] bg-slate-700/50 px-3 rounded">
                             <i data-lucide="waves" class="w-4 h-4 text-slate-400"></i>
                             <input type="range" id="reverb-slider" min="0" max="100" value="30" class="w-full">
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider" title="Tempo de sustentação da cauda do som após soltar a tecla">Release</label>
+                        <div class="flex items-center gap-2 h-[36px] bg-slate-700/50 px-3 rounded">
+                            <i data-lucide="music-4" class="w-4 h-4 text-slate-400"></i>
+                            <input type="range" id="release-slider" min="0" max="300" value="50" class="w-full" title="Ajuste a duração da cauda do som">
                         </div>
                     </div>
                     <!-- Indicador de Modulation via Hardware MIDI -->
@@ -295,8 +302,14 @@
             volA: 1.0,
             volB: 0.8,
             reverb: 0.3,
+            releaseTime: 0.5,
             modulation: 0
         };
+
+        // Estado do Sustain e Teclas Pressioadas
+        let heldKeys = new Set();
+        let sustainedNotes = new Set();
+        let sustainPedal = false;
 
         const startNote = 21; // A0 
         const endNote = 108;  // C8 
@@ -575,7 +588,12 @@
             if (prog >= 128) {
                 playSynthDrum(note, velocity * vol); 
             } else {
-                if (loadedSF[prog] && !activeNotesDict[note]) {
+                // Se a nota já estava tocando (ex: sustenida pelo pedal), pare-a para reatacar
+                if (activeNotesDict[note]) {
+                    activeNotesDict[note].stop(audioCtx.currentTime);
+                }
+                
+                if (loadedSF[prog]) {
                     activeNotesDict[note] = loadedSF[prog].play(note, audioCtx.currentTime, { gain: finalGain });
                 }
             }
@@ -584,12 +602,17 @@
         function releaseLayer(layerKey, note) {
             const activeNotesDict = layerKey === 'A' ? activeNotesA : activeNotesB;
             if (activeNotesDict[note]) {
-                activeNotesDict[note].stop(audioCtx.currentTime + 0.1);
+                // Usa o tempo de release definido pelo usuário no painel
+                activeNotesDict[note].stop(audioCtx.currentTime + state.releaseTime);
                 delete activeNotesDict[note];
             }
         }
 
         function playNote(note, velocity = 100) {
+            // Registra que a tecla está fisicamente pressionada
+            heldKeys.add(note);
+            sustainedNotes.delete(note); // Remove da lista de sustem automático se for pressionada novamente
+
             if (!audioCtx) initAudioEngine();
             if (audioCtx.state === 'suspended') audioCtx.resume();
 
@@ -618,13 +641,25 @@
         }
 
         function stopNote(note) {
+            // Registra que a tecla foi fisicamente solta
+            heldKeys.delete(note);
+
+            // Sempre envia o Note Off para equipamentos externos (pois eles gerenciam seus próprios pedais)
             if (outputPort) {
                 outputPort.send([0x80, note, 0]);
                 outputPort.send([0x81, note, 0]);
+            }
+
+            // Para o sintetizador interno: se o pedal estiver abaixado, mantém a nota soando
+            if (sustainPedal) {
+                sustainedNotes.add(note);
             } else {
+                // Caso contrário, solta a nota com fade out suave
                 releaseLayer('A', note);
                 releaseLayer('B', note);
             }
+
+            // Sempre removemos o visual da tecla quando solta o dedo
             const keyEl = document.querySelector(`.key[data-note="${note}"]`);
             if (keyEl) keyEl.classList.remove('active');
         }
@@ -666,6 +701,10 @@
         document.getElementById('reverb-slider').addEventListener('input', (e) => {
             state.reverb = e.target.value / 100;
             if (wetGain) wetGain.gain.value = state.reverb;
+        });
+
+        document.getElementById('release-slider').addEventListener('input', (e) => {
+            state.releaseTime = e.target.value / 100;
         });
 
         document.getElementById('split-point').addEventListener('change', (e) => {
@@ -780,8 +819,29 @@
                 const cc = data1;
                 const val = data2;
 
+                // Sustain Pedal (CC 64)
+                if (cc === 64) {
+                    sustainPedal = (val >= 64);
+                    
+                    // Se soltar o pedal, finaliza as notas que estavam sendo sustentadas apenas por ele
+                    if (!sustainPedal) {
+                        sustainedNotes.forEach(note => {
+                            if (!heldKeys.has(note)) {
+                                releaseLayer('A', note);
+                                releaseLayer('B', note);
+                            }
+                        });
+                        sustainedNotes.clear();
+                    }
+                    
+                    // Repassa o CC de pedal para o dispositivo MIDI externo
+                    if (outputPort) {
+                        outputPort.send([status, cc, val]);
+                        if (state.mode !== 'single') outputPort.send([(0xB0 | 1), cc, val]);
+                    }
+                }
                 // Modulação (CC 1 padrão OU CC 19 do controlador)
-                if (cc === 1 || cc === 19) {
+                else if (cc === 1 || cc === 19) {
                     state.modulation = val / 127;
                     const modSlider = document.getElementById('mod-wheel');
                     if (modSlider) modSlider.value = val;
