@@ -137,11 +137,11 @@
                         </div>
                     </div>
                     <!-- Indicadores de Roda Pitch e Modulation via Hardware MIDI -->
-                    <div class="flex flex-col justify-end pb-1 w-[80px]">
+                    <div class="flex flex-col justify-end pb-1 w-[120px]">
                         <label class="block text-[10px] text-center font-bold text-slate-400 mb-1 uppercase tracking-wider">Pitch | Mod</label>
                         <div class="flex gap-2">
-                            <input type="range" id="pitch-wheel" min="0" max="16383" value="8192" class="w-1/2" disabled title="Pitch Bend Controlado via MIDI">
-                            <input type="range" id="mod-wheel" min="0" max="127" value="0" class="w-1/2" disabled title="Modulation Controlado via MIDI">
+                            <input type="range" id="pitch-wheel" min="0" max="16383" value="8192" class="w-1/2" disabled title="Pitch Bend (Roda ou CC 18)">
+                            <input type="range" id="mod-wheel" min="0" max="127" value="0" class="w-1/2" disabled title="Modulation (CC 1 ou CC 19)">
                         </div>
                     </div>
                 </div>
@@ -179,7 +179,7 @@
 
                 <!-- Timbre A -->
                 <div class="md:col-span-4 flex flex-col gap-2">
-                    <label class="block text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Timbre A (Dir / CC 7)</label>
+                    <label class="block text-[10px] font-bold text-cyan-400 uppercase tracking-wider" title="Controlável via CC 7 ou CC 10 / F1">Timbre A (Dir / CC 10)</label>
                     <select id="instrument-a" class="w-full p-2 text-sm rounded appearance-none cursor-pointer border-cyan-700/50"></select>
                     <div class="flex items-center gap-3 mt-1">
                         <span class="text-xs text-slate-400">Vol:</span>
@@ -189,7 +189,7 @@
 
                 <!-- Timbre B -->
                 <div class="md:col-span-4 flex flex-col gap-2 opacity-50 transition-opacity" id="panel-timbre-b">
-                    <label class="block text-[10px] font-bold text-purple-400 uppercase tracking-wider">Timbre B (Esq / CC 11)</label>
+                    <label class="block text-[10px] font-bold text-purple-400 uppercase tracking-wider" title="Controlável via CC 11 ou F2">Timbre B (Esq / CC 11)</label>
                     <select id="instrument-b" class="w-full p-2 text-sm rounded appearance-none cursor-pointer border-purple-700/50" disabled></select>
                     <div class="flex items-center gap-3 mt-1">
                         <span class="text-xs text-slate-400">Vol:</span>
@@ -701,13 +701,13 @@
             else if (cmd === 8 || (cmd === 9 && data2 === 0)) {
                 stopNote(data1);
             }
-            // 3. Control Change (CC)
+            // 3. Control Change (CC) - LIDA COM OS COMANDOS DO USUÁRIO
             else if (cmd === 11) {
                 const cc = data1;
                 const val = data2;
 
-                // Modulação (CC 1)
-                if (cc === 1) {
+                // Modulação (CC 1 padrão OU CC 19 do controlador)
+                if (cc === 1 || cc === 19) {
                     state.modulation = val / 127;
                     const modSlider = document.getElementById('mod-wheel');
                     if (modSlider) modSlider.value = val;
@@ -718,19 +718,34 @@
                         if (state.mode !== 'single') outputPort.send([(0xB0 | 1), cc, val]);
                     }
                 }
-                // Volume Timbre A (CC 7)
-                else if (cc === 7) {
+                // Volume Timbre A (CC 7 padrão OU CC 10 / F1 do controlador)
+                else if (cc === 7 || cc === 10) {
                     const vol = val / 127;
                     const sliderA = document.getElementById('vol-a');
                     sliderA.value = vol * 100;
-                    sliderA.dispatchEvent(new Event('input')); // Força atualização do estado
+                    sliderA.dispatchEvent(new Event('input')); // Força atualização visual e de estado
                 }
-                // Volume Timbre B (CC 11 - Expression / Facilita para usar com o controlador)
+                // Volume Timbre B (CC 11 padrão / F2 do controlador)
                 else if (cc === 11) {
                     const vol = val / 127;
                     const sliderB = document.getElementById('vol-b');
                     sliderB.value = vol * 100;
-                    sliderB.dispatchEvent(new Event('input')); // Força atualização do estado
+                    sliderB.dispatchEvent(new Event('input')); 
+                }
+                // Pitch Bend Via Knob/Slider (CC 18 do controlador)
+                else if (cc === 18) {
+                    // Como CC é 0-127 e o PitchBend original é 0-16383, fazemos a conversão matemática
+                    const bend = Math.floor((val / 127) * 16383);
+                    state.pitchBend = bend;
+                    const pitchSlider = document.getElementById('pitch-wheel');
+                    if (pitchSlider) pitchSlider.value = bend;
+                    
+                    if (outputPort) {
+                        const lsb = bend & 0x7F;
+                        const msb = (bend >> 7) & 0x7F;
+                        outputPort.send([(0xE0 | channel), lsb, msb]);
+                        if (state.mode !== 'single') outputPort.send([(0xE0 | 1), lsb, msb]);
+                    }
                 }
                 // Controles de Oitava mapeados (CC 111 e CC 112)
                 else if (cc === 111 && val > 64) { document.getElementById('oct-down').click(); }
@@ -747,7 +762,7 @@
                     document.getElementById('instrument-b').dispatchEvent(new Event('change'));
                 }
             }
-            // 5. Pitch Bend
+            // 5. Pitch Bend Original Padrão (Roda)
             else if (cmd === 14) {
                 const bend = (data2 << 7) | data1; // 0 a 16383
                 state.pitchBend = bend;
