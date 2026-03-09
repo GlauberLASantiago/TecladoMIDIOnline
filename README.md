@@ -27,4 +27,3 @@ O teclado do seu computador está mapeado em duas filas para simular as teclas d
 Desenvolvido pelo professor Glauber Santiago — DAC/UFSCar
 •	🌐 servidores.ufscar.br/glauber/
 •	🌐 sites.google.com/view/glauberia
-
