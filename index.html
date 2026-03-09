@@ -1,1 +1,845 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teclado MIDI Online</title>
+    <!-- Tailwind CSS para estilização rápida e responsiva -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Soundfont Player para carregar samples de timbres reais General MIDI -->
+    <script src="https://unpkg.com/soundfont-player/dist/soundfont-player.min.js"></script>
+    <style>
+        body { 
+            background-color: #0f172a; /* Slate 900 */
+            color: white; 
+            user-select: none;
+            overflow-x: hidden;
+        }
 
+        /* Estilização específica do container do piano para scroll */
+        .piano-container {
+            display: flex;
+            background: #1e293b; /* Slate 800 */
+            padding: 24px 24px 0 24px;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.05);
+            overflow-x: auto;
+            border: 1px solid #334155;
+            scrollbar-width: thin;
+            scrollbar-color: #475569 #1e293b;
+        }
+
+        .piano-container::-webkit-scrollbar {
+            height: 14px;
+        }
+        .piano-container::-webkit-scrollbar-track {
+            background: #1e293b; 
+            border-radius: 0 0 16px 16px;
+        }
+        .piano-container::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 10px;
+            border: 3px solid #1e293b;
+        }
+        .piano-container::-webkit-scrollbar-thumb:hover {
+            background: #64748b; 
+        }
+
+        /* Teclas Brancas */
+        .white {
+            width: 54px;
+            height: 240px;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 0 0 6px 6px;
+            cursor: pointer;
+            box-shadow: inset 0 -4px 6px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.3);
+            transition: all 0.05s ease;
+            position: relative;
+            z-index: 1;
+        }
+        .white.active {
+            background: #e2e8f0;
+            box-shadow: inset 0 -2px 4px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.4);
+            transform: perspective(500px) rotateX(2deg) translateY(2px);
+        }
+
+        /* Teclas Pretas */
+        .black {
+            width: 34px;
+            height: 150px;
+            background: linear-gradient(to bottom, #334155 0%, #0f172a 100%);
+            border-radius: 0 0 4px 4px;
+            cursor: pointer;
+            box-shadow: inset 0 -2px 4px rgba(255,255,255,0.1), 2px 4px 6px rgba(0,0,0,0.6);
+            z-index: 10;
+            transition: all 0.05s ease;
+            position: absolute;
+            top: 0;
+            /* A tecla preta fica exatamente no meio da divisão entre duas brancas */
+            right: -17px; 
+        }
+        .black.active {
+            background: linear-gradient(to bottom, #1e293b 0%, #020617 100%);
+            box-shadow: inset 0 -1px 2px rgba(255,255,255,0.05), 1px 2px 3px rgba(0,0,0,0.8);
+            transform: perspective(500px) rotateX(2deg) translateY(2px);
+        }
+
+        /* Elementos de Formulário UI */
+        select, button {
+            background-color: #334155;
+            border: 1px solid #475569;
+            color: #f8fafc;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        select:hover, button:hover {
+            background-color: #475569;
+            border-color: #64748b;
+        }
+        select:focus {
+            outline: 2px solid #3b82f6;
+            outline-offset: -1px;
+        }
+        button:active {
+            transform: translateY(1px);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center min-h-screen py-10 font-sans">
+
+    <div class="max-w-6xl w-full mx-auto px-4 flex flex-col gap-6">
+        
+        <!-- Cabeçalho e Status -->
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
+                    Teclado MIDI Online
+                </h1>
+                <p class="text-slate-400 text-sm mt-1">
+                    Conecta-se ao sintetizador interno do seu sistema usando a Web MIDI API.
+                </p>
+            </div>
+            <div id="status-indicator" class="flex items-center gap-3 bg-slate-800 px-4 py-2.5 rounded-full border border-slate-700 shadow-lg">
+                <div id="status-dot" class="w-3.5 h-3.5 rounded-full bg-yellow-500 animate-pulse"></div>
+                <span id="status-text" class="text-sm font-medium text-slate-300">Solicitando permissão MIDI...</span>
+            </div>
+        </div>
+
+        <!-- Barra de Controles -->
+        <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 flex flex-wrap gap-4 items-end backdrop-blur-sm">
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Entrada (Teclado Externo)</label>
+                <select id="midi-in-select" class="w-full p-2.5 rounded-lg appearance-none cursor-pointer">
+                    <option value="">Nenhum / Apenas QWERTY</option>
+                </select>
+            </div>
+
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Saída MIDI (Banco de Som)</label>
+                <select id="midi-out-select" class="w-full p-2.5 rounded-lg appearance-none cursor-pointer">
+                    <option value="web-synth">Sintetizador Web (Padrão)</option>
+                </select>
+            </div>
+            
+            <div class="flex-1 min-w-[250px]">
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Timbre / Instrumento / Bateria</label>
+                <select id="instrument-select" class="w-full p-2.5 rounded-lg appearance-none cursor-pointer">
+                    <!-- Opções inseridas via JS -->
+                </select>
+            </div>
+
+            <div class="flex flex-col items-center">
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Oitava (<span id="oct-display">4</span>)</label>
+                <div class="flex gap-2">
+                    <button id="oct-down" class="px-4 py-2.5 rounded-lg font-bold text-lg leading-none" title="Descer Oitava">-</button>
+                    <button id="oct-up" class="px-4 py-2.5 rounded-lg font-bold text-lg leading-none" title="Subir Oitava">+</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Container do Piano (Gerado via JS) -->
+        <div id="piano" class="piano-container pb-4 relative">
+            <!-- As teclas serão renderizadas aqui -->
+        </div>
+
+        <!-- Instruções -->
+        <div class="text-slate-500 text-sm flex justify-between items-start mt-4">
+            <p><strong>Dica de uso:</strong> Clique ou arraste o mouse sobre as teclas, ou use o <strong>Teclado do PC</strong> (fileiras Z/X/C/V... e Q/W/E/R...) para tocar.</p>
+            <p class="text-right max-w-sm">Nota: Se não houver som, verifique se o navegador tem permissão e se seu SO possui um sintetizador MIDI ativo.</p>
+        </div>
+
+        <!-- Rodapé com Créditos -->
+        <footer class="mt-8 text-center text-slate-500 text-sm border-t border-slate-700/50 pt-6 pb-4">
+            <p class="mb-2">Créditos: Desenvolvido pelo professor <strong class="text-slate-300">Glauber Santiago</strong> — DAC/UFSCar</p>
+            <p>Websites: 
+                <a href="http://servidores.ufscar.br/glauber/" target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline transition">servidores.ufscar.br/glauber/</a> <span class="mx-2 text-slate-600">|</span> 
+                <a href="https://sites.google.com/view/glauberia" target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline transition">sites.google.com/view/glauberia</a>
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURAÇÕES E DADOS GERAIS ---
+        let midiAccess = null;
+        let outputPort = null;
+        let inputPort = null;
+        let currentOctave = 4;
+        let currentProgram = 0; // Padrão: Acoustic Grand Piano
+        let currentChannel = 1; // 1 = Melódico, 10 = Bateria
+
+        const startNote = 21; // A0 (Início de um piano de 88 teclas)
+        const endNote = 108;  // C8 (Fim de um piano de 88 teclas)
+
+        // Mapeamento do teclado do PC para notas (relativo à oitava base)
+        const keyMap = {
+            // Fileira de Baixo (Oitava anterior)
+            'KeyZ': -12, 'KeyS': -11, 'KeyX': -10, 'KeyD': -9, 'KeyC': -8, 'KeyV': -7,
+            'KeyG': -6, 'KeyB': -5, 'KeyH': -4, 'KeyN': -3, 'KeyJ': -2, 'KeyM': -1,
+            'Comma': 0, 'KeyL': 1, 'Period': 2, 'Semicolon': 3, 'Slash': 4,
+            
+            // Fileira de Cima (Oitava atual)
+            'KeyQ': 0, 'Digit2': 1, 'KeyW': 2, 'Digit3': 3, 'KeyE': 4, 'KeyR': 5,
+            'Digit5': 6, 'KeyT': 7, 'Digit6': 8, 'KeyY': 9, 'Digit7': 10, 'KeyU': 11,
+            'KeyI': 12, 'Digit9': 13, 'KeyO': 14, 'Digit0': 15, 'KeyP': 16
+        };
+
+        // Os 128 instrumentos oficiais do Padrão General MIDI traduzidos
+        const gmInstruments = [
+            "Piano Acústico", "Piano Brilhante", "Piano Elétrico Grand", "Piano Honky-tonk", "Piano Elétrico 1", "Piano Elétrico 2", "Cravo", "Clavinete",
+            "Celesta", "Glockenspiel", "Caixa de Música", "Vibrafone", "Marimba", "Xilofone", "Sinos Tubulares", "Dulcimer",
+            "Órgão Drawbar", "Órgão Percussivo", "Órgão de Rock", "Órgão de Tubos", "Órgão de Palhetas", "Acordeão", "Gaita", "Acordeão de Tango",
+            "Violão (Nylon)", "Violão (Aço)", "Guitarra (Jazz)", "Guitarra (Limpa)", "Guitarra (Mutada)", "Guitarra (Overdrive)", "Guitarra (Distorção)", "Harmônicos de Guitarra",
+            "Baixo Acústico", "Baixo Elétrico (Dedo)", "Baixo Elétrico (Palheta)", "Baixo Fretless", "Baixo Slap 1", "Baixo Slap 2", "Baixo Sintético 1", "Baixo Sintético 2",
+            "Violino", "Viola", "Violoncelo", "Contrabaixo", "Cordas em Tremolo", "Cordas em Pizzicato", "Harpa Orquestral", "Tímpano",
+            "Conjunto de Cordas 1", "Conjunto de Cordas 2", "Cordas Sintéticas 1", "Cordas Sintéticas 2", "Coro Aahs", "Voz Oohs", "Voz Sintética", "Hit Orquestral",
+            "Trompete", "Trombone", "Tuba", "Trompete com Surdina", "Trompa", "Seção de Metais", "Metais Sintéticos 1", "Metais Sintéticos 2",
+            "Saxofone Soprano", "Saxofone Alto", "Saxofone Tenor", "Saxofone Barítono", "Oboé", "Corne Inglês", "Fagote", "Clarinete",
+            "Flautim", "Flauta Transversal", "Flauta Doce", "Flauta de Pã", "Garrafa Soprada", "Shakuhachi", "Apito", "Ocarina",
+            "Lead 1 (Square)", "Lead 2 (Sawtooth)", "Lead 3 (Calliope)", "Lead 4 (Chiff)", "Lead 5 (Charang)", "Lead 6 (Voice)", "Lead 7 (Fifths)", "Lead 8 (Bass+Lead)",
+            "Pad 1 (New Age)", "Pad 2 (Warm)", "Pad 3 (Polysynth)", "Pad 4 (Choir)", "Pad 5 (Bowed)", "Pad 6 (Metallic)", "Pad 7 (Halo)", "Pad 8 (Sweep)",
+            "Efeito 1 (Chuva)", "Efeito 2 (Trilha Sonora)", "Efeito 3 (Cristal)", "Efeito 4 (Atmosfera)", "Efeito 5 (Brilho)", "Efeito 6 (Goblins)", "Efeito 7 (Ecos)", "Efeito 8 (Ficção Científica)",
+            "Sitar", "Banjo", "Shamisen", "Koto", "Kalimba", "Gaita de Foles", "Rabeca", "Shanai",
+            "Sino de Funileiro", "Agogô", "Tambores de Aço", "Bloco de Madeira", "Taiko", "Tom Melódico", "Tambor Sintético", "Prato Reverso",
+            "Ruído de Traste", "Respiração", "Ondas do Mar", "Canto de Pássaro", "Toque de Telefone", "Helicóptero", "Aplausos", "Tiro de Pistola"
+        ];
+
+        // Mapeamento em inglês exigido pela biblioteca Soundfont
+        const sfNames = [
+            "acoustic_grand_piano", "bright_acoustic_piano", "electric_grand_piano", "honkytonk_piano", "electric_piano_1", "electric_piano_2", "harpsichord", "clavi",
+            "celesta", "glockenspiel", "music_box", "vibraphone", "marimba", "xylophone", "tubular_bells", "dulcimer",
+            "drawbar_organ", "percussive_organ", "rock_organ", "church_organ", "reed_organ", "accordion", "harmonica", "tango_accordion",
+            "acoustic_guitar_nylon", "acoustic_guitar_steel", "electric_guitar_jazz", "electric_guitar_clean", "electric_guitar_muted", "overdriven_guitar", "distortion_guitar", "guitar_harmonics",
+            "acoustic_bass", "electric_bass_finger", "electric_bass_pick", "fretless_bass", "slap_bass_1", "slap_bass_2", "synth_bass_1", "synth_bass_2",
+            "violin", "viola", "cello", "contrabass", "tremolo_strings", "pizzicato_strings", "orchestral_harp", "timpani",
+            "string_ensemble_1", "string_ensemble_2", "synthstrings_1", "synthstrings_2", "choir_aahs", "voice_oohs", "synth_voice", "orchestral_hit",
+            "trumpet", "trombone", "tuba", "muted_trumpet", "french_horn", "brass_section", "synthbrass_1", "synthbrass_2",
+            "soprano_sax", "alto_sax", "tenor_sax", "baritone_sax", "oboe", "english_horn", "bassoon", "clarinet",
+            "piccolo", "flute", "recorder", "pan_flute", "blown_bottle", "shakuhachi", "whistle", "ocarina",
+            "lead_1_square", "lead_2_sawtooth", "lead_3_calliope", "lead_4_chiff", "lead_5_charang", "lead_6_voice", "lead_7_fifths", "lead_8_bass_lead",
+            "pad_1_new_age", "pad_2_warm", "pad_3_polysynth", "pad_4_choir", "pad_5_bowed", "pad_6_metallic", "pad_7_halo", "pad_8_sweep",
+            "fx_1_rain", "fx_2_soundtrack", "fx_3_crystal", "fx_4_atmosphere", "fx_5_brightness", "fx_6_goblins", "fx_7_echoes", "fx_8_scifi",
+            "sitar", "banjo", "shamisen", "koto", "kalimba", "bagpipe", "fiddle", "shanai",
+            "tinkle_bell", "agogo", "steel_drums", "woodblock", "taiko_drum", "melodic_tom", "synth_drum", "reverse_cymbal",
+            "guitar_fret_noise", "breath_noise", "seashore", "bird_tweet", "telephone_ring", "helicopter", "applause", "gunshot"
+        ];
+
+        // Kits de Bateria do Padrão General MIDI
+        const drumKits = [
+            { name: "Standard Kit", pc: 0 },
+            { name: "Room Kit", pc: 8 },
+            { name: "Power Kit", pc: 16 },
+            { name: "Electronic Kit", pc: 24 },
+            { name: "TR-808 Kit", pc: 25 },
+            { name: "Jazz Kit", pc: 32 },
+            { name: "Brush Kit", pc: 40 },
+            { name: "Orchestra Kit", pc: 48 },
+            { name: "SFX Kit", pc: 56 }
+        ];
+
+        // --- 2. INICIALIZAÇÃO DA INTERFACE ---
+        
+        // Preencher opções de instrumentos
+        const selectInstrument = document.getElementById('instrument-select');
+        
+        function updateInstrumentList() {
+            selectInstrument.innerHTML = '';
+            
+            // Adiciona os 128 Instrumentos Melódicos
+            gmInstruments.forEach((inst, index) => {
+                const opt = document.createElement('option');
+                opt.value = index; // Valores de 0 a 127
+                opt.text = `${String(index + 1).padStart(3, '0')} - ${inst}`;
+                selectInstrument.appendChild(opt);
+            });
+
+            // Adiciona um separador visual (opcional)
+            const separator = document.createElement('option');
+            separator.disabled = true;
+            separator.text = "────────── BATERIAS ──────────";
+            selectInstrument.appendChild(separator);
+
+            // Adiciona os Kits de Bateria no final da lista
+            drumKits.forEach((kit, index) => {
+                const opt = document.createElement('option');
+                // Valores a partir de 128 indicam que é bateria
+                opt.value = 128 + index; 
+                opt.text = `Kit Bateria - ${kit.name}`;
+                selectInstrument.appendChild(opt);
+            });
+            
+            currentProgram = 0; // Reseta para Piano
+        }
+        
+        // Inicializa a lista unificada
+        updateInstrumentList();
+
+        // Evento de troca de instrumento / kit
+        selectInstrument.addEventListener('change', (e) => {
+            const val = parseInt(e.target.value);
+            
+            if (val < 128) {
+                // É um instrumento melódico normal
+                currentChannel = 1;
+                currentProgram = val;
+            } else {
+                // É um kit de bateria (índice 128 em diante)
+                currentChannel = 10;
+                currentProgram = drumKits[val - 128].pc;
+            }
+            
+            changeProgram(currentProgram);
+        });
+
+        // Função auxiliar para retornar qual tecla física toca qual nota atual
+        function getKeyLabel(note) {
+            const baseNote = (currentOctave + 1) * 12;
+            for (const [key, offset] of Object.entries(keyMap)) {
+                if (baseNote + offset === note) {
+                    return key.replace('Key', '').replace('Digit', '').replace('Comma', ',').replace('Period', '.').replace('Slash','/').replace('Semicolon',';');
+                }
+            }
+            return '';
+        }
+
+        // Renderizar o Piano na Tela
+        const pianoContainer = document.getElementById('piano');
+        let pianoHTML = '';
+        
+        for (let i = startNote; i <= endNote; i++) {
+            // Descobre se a nota atual é preta verificando o resto da divisão por 12
+            const isBlack = [1, 3, 6, 8, 10].includes(i % 12);
+            
+            if (!isBlack) {
+                // Se for tecla branca, verifica se a *próxima* nota é uma preta
+                const nextIsBlack = [1, 3, 6, 8, 10].includes((i + 1) % 12);
+                
+                let blackHTML = '';
+                if (nextIsBlack && (i + 1) <= endNote) {
+                     blackHTML = `
+                        <div class="key black" data-note="${i+1}">
+                            <span class="absolute bottom-2 w-full text-center text-[10px] opacity-70 pointer-events-none text-slate-300 font-bold"></span>
+                        </div>`;
+                }
+                
+                // Embrulha a tecla branca e sua tecla preta correspondente em um container
+                pianoHTML += `
+                    <div class="relative flex-none">
+                        <div class="key white" data-note="${i}">
+                            <span class="absolute bottom-4 w-full text-center text-xs opacity-50 pointer-events-none text-slate-600 font-bold"></span>
+                        </div>
+                        ${blackHTML}
+                    </div>
+                `;
+            }
+        }
+        pianoContainer.innerHTML = pianoHTML;
+
+        // Atualiza as letrinhas sobre as teclas
+        function updateLabels() {
+            document.querySelectorAll('.key').forEach(keyEl => {
+                const note = parseInt(keyEl.dataset.note);
+                const label = getKeyLabel(note);
+                const span = keyEl.querySelector('span');
+                if (span) span.textContent = label;
+            });
+            document.getElementById('oct-display').textContent = currentOctave;
+        }
+        updateLabels();
+
+        // Centraliza a visão na oitava 4 (Dó central = 60)
+        setTimeout(() => {
+            const middleC = document.querySelector('.key[data-note="60"]');
+            if (middleC) middleC.scrollIntoView({ behavior: 'smooth', inline: 'center' });
+        }, 300);
+
+        // Controles de Oitava
+        document.getElementById('oct-up').addEventListener('click', () => {
+            if (currentOctave < 7) { currentOctave++; updateLabels(); }
+        });
+        document.getElementById('oct-down').addEventListener('click', () => {
+            if (currentOctave > 1) { currentOctave--; updateLabels(); }
+        });
+
+
+        // --- 3. LÓGICA DE WEB MIDI API E ÁUDIO FALLBACK ---
+
+        // Sintetizador Web de Fallback (Agora usando Soundfonts com timbres reais)
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = AudioContext ? new AudioContext() : null;
+        let sfInstrument = null;
+        let activeSfNotes = {};
+
+        // --- DADOS PARA OS KITS DE BATERIA REAIS ---
+        const drumSamplesURLs = {
+            kick: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/kick.wav',
+            snare: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/snare.wav',
+            hihat: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/hihat.wav',
+            openhat: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/openhat.wav',
+            ride: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/ride.wav',
+            crash: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/crash.wav',
+            tom: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/tom.wav',
+            clap: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/clap.wav',
+            tink: 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/tink.wav'
+        };
+        const drumBuffers = {};
+        let isDrumKitLoaded = false;
+
+        async function loadDrumKit() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') {
+                try { await audioCtx.resume(); } catch(e) {}
+            }
+            if (isDrumKitLoaded) {
+                setStatus('Banco de Bateria (Kit Acústico) Pronto', 'ok');
+                return;
+            }
+            
+            setStatus('Baixando samples de bateria de estúdio...', 'loading');
+            try {
+                const promises = Object.entries(drumSamplesURLs).map(async ([name, url]) => {
+                    const response = await fetch(url);
+                    const arrayBuffer = await response.arrayBuffer();
+                    drumBuffers[name] = await audioCtx.decodeAudioData(arrayBuffer);
+                });
+                await Promise.all(promises);
+                isDrumKitLoaded = true;
+                setStatus('Banco de Bateria (Kit Acústico) Carregado', 'ok');
+            } catch (e) {
+                console.error("Erro ao baixar bateria:", e);
+                setStatus('Erro ao carregar bateria (Usando Synth Simples)', 'error');
+            }
+        }
+
+        async function loadSoundfont(progNum) {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') {
+                try { await audioCtx.resume(); } catch(e) { /* Ignora alerta de autoplay inicial do navegador */ }
+            }
+            
+            setStatus(`Baixando timbre: ${gmInstruments[progNum]}...`, 'loading');
+            
+            try {
+                // Carrega o instrumento (samples reais do General MIDI)
+                sfInstrument = await Soundfont.instrument(audioCtx, sfNames[progNum], { soundfont: 'MusyngKite' });
+                setStatus('Timbre Carregado (Sintetizador Web)', 'ok');
+            } catch (e) {
+                console.error(e);
+                setStatus('Erro ao carregar timbre da internet', 'error');
+            }
+        }
+
+        function playAudioSynth(note) {
+            if (!audioCtx || !sfInstrument) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (activeSfNotes[note]) return; // Evita engolir a nota se repetida muito rápido
+
+            // Toca o sample real
+            activeSfNotes[note] = sfInstrument.play(note, audioCtx.currentTime, { gain: 1.5 });
+        }
+
+        function stopAudioSynth(note) {
+            if (activeSfNotes[note]) {
+                activeSfNotes[note].stop(audioCtx.currentTime + 0.1); // Solta a tecla suavemente
+                delete activeSfNotes[note];
+            }
+        }
+
+        // Função auxiliar de ruído para bateria eletrônica
+        function playNoise(time, filterType, freq, decay, gainValue = 1) {
+            const bufferSize = audioCtx.sampleRate * decay;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = filterType;
+            filter.frequency.value = freq;
+            const gainNode = audioCtx.createGain();
+            
+            noise.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            gainNode.gain.setValueAtTime(gainValue, time);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, time + decay);
+            noise.start(time);
+        }
+
+        // Sintetizador dedicado para Electronic e TR-808 Kit (PC 24 e 25)
+        function play808Kit(note) {
+            const time = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (note === 35 || note === 36) { // 808 Kick
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, time);
+                osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.8);
+                gain.gain.setValueAtTime(1.5, time);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.8);
+                osc.start(time);
+                osc.stop(time + 0.8);
+            } else if (note === 38 || note === 40) { // 808 Snare
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(250, time);
+                osc.frequency.exponentialRampToValueAtTime(100, time + 0.2);
+                gain.gain.setValueAtTime(0.8, time);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+                osc.start(time);
+                osc.stop(time + 0.2);
+                playNoise(time, 'highpass', 2000, 0.25, 0.6); // Snare wire
+            } else if (note === 42 || note === 44) { // Closed Hat
+                playNoise(time, 'bandpass', 8000, 0.1, 0.8);
+            } else if (note === 46) { // Open Hat
+                playNoise(time, 'bandpass', 8000, 0.4, 0.8);
+            } else if (note >= 41 && note <= 50) { // Toms
+                const f = 150 + (note - 40)*15;
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(f, time);
+                osc.frequency.exponentialRampToValueAtTime(f/2, time + 0.4);
+                gain.gain.setValueAtTime(1.2, time);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
+                osc.start(time);
+                osc.stop(time + 0.4);
+            } else { // Crash/Ride/Others
+                playNoise(time, 'highpass', 4000, 0.8, 0.7);
+            }
+        }
+
+        // Toca os samples reais de bateria ou redireciona pro synth eletrônico
+        function playWebDrum(note) {
+            if (!audioCtx) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            // Se escolheu kit Eletrônico (24) ou TR-808 (25), usa o Synth dedicado
+            if (currentProgram === 24 || currentProgram === 25) {
+                play808Kit(note);
+                return;
+            }
+
+            // Para os outros (Standard, Room, Jazz, etc), usa os samples reais
+            if (!isDrumKitLoaded) {
+                // Fallback de emergência se o áudio não baixar
+                play808Kit(note);
+                return;
+            }
+
+            let bufferName = null;
+            let playbackRate = 1.0;
+
+            // Mapeamento General MIDI (Nota vs Peça da Bateria)
+            switch(note) {
+                case 35: case 36: bufferName = 'kick'; break;
+                case 37: bufferName = 'tink'; playbackRate = 0.8; break; // Rimshot
+                case 38: case 40: bufferName = 'snare'; break;
+                case 39: bufferName = 'clap'; break;
+                case 42: case 44: bufferName = 'hihat'; break;
+                case 46: bufferName = 'openhat'; break;
+                case 49: case 55: case 57: bufferName = 'crash'; break;
+                case 51: case 53: case 59: bufferName = 'ride'; break;
+                // Os Toms usam a mesma gravação com pitch dinâmico
+                case 41: bufferName = 'tom'; playbackRate = 0.6; break; // Low Floor Tom
+                case 43: bufferName = 'tom'; playbackRate = 0.75; break; // High Floor Tom
+                case 45: bufferName = 'tom'; playbackRate = 0.9; break; // Low Tom
+                case 47: bufferName = 'tom'; playbackRate = 1.0; break; // Low-Mid Tom
+                case 48: bufferName = 'tom'; playbackRate = 1.1; break; // Hi-Mid Tom
+                case 50: bufferName = 'tom'; playbackRate = 1.25; break; // High Tom
+                default: 
+                    // Outras notas percussivas (cowbell, agogo, etc)
+                    bufferName = 'tink';
+                    playbackRate = Math.pow(2, (note - 56) / 12);
+                    break;
+            }
+
+            if (bufferName && drumBuffers[bufferName]) {
+                const source = audioCtx.createBufferSource();
+                source.buffer = drumBuffers[bufferName];
+                source.playbackRate.value = playbackRate;
+                
+                const gain = audioCtx.createGain();
+                gain.gain.value = 1.2; // Volume master das peças
+                
+                source.connect(gain);
+                gain.connect(audioCtx.destination);
+                source.start(0);
+            }
+        }
+
+        // Configura Indicador de Status Visual
+        function setStatus(msg, state) {
+            document.getElementById('status-text').textContent = msg;
+            const dot = document.getElementById('status-dot');
+            dot.className = 'w-3.5 h-3.5 rounded-full ' + 
+                (state === 'ok' ? 'bg-emerald-500' : state === 'error' ? 'bg-red-500' : 'bg-yellow-500 animate-pulse');
+        }
+
+        // Atualiza a lista dropdown de portas de entrada e saída MIDI
+        function updateDevices() {
+            // Entradas (Teclados Físicos Externos)
+            const selectIn = document.getElementById('midi-in-select');
+            const currentInVal = selectIn.value;
+            selectIn.innerHTML = '<option value="">Nenhum / Apenas QWERTY</option>';
+            
+            let foundIn = false;
+            for (let input of midiAccess.inputs.values()) {
+                const opt = document.createElement('option');
+                opt.value = input.id;
+                opt.text = input.name;
+                selectIn.appendChild(opt);
+                if (currentInVal === input.id || (!currentInVal && !foundIn)) {
+                    foundIn = true;
+                    opt.selected = true;
+                    inputPort = input;
+                    inputPort.onmidimessage = onMidiMessage;
+                }
+            }
+            if (!foundIn) inputPort = null;
+
+            // Saídas (Sintetizadores MIDI)
+            const selectOut = document.getElementById('midi-out-select');
+            const currentOutVal = selectOut.value;
+            selectOut.innerHTML = '<option value="web-synth">Sintetizador Web (Padrão)</option>';
+            
+            let foundOut = false;
+            for (let output of midiAccess.outputs.values()) {
+                const opt = document.createElement('option');
+                opt.value = output.id;
+                opt.text = output.name;
+                selectOut.appendChild(opt);
+                if (currentOutVal === output.id) {
+                    foundOut = true;
+                    opt.selected = true;
+                }
+            }
+            if (!foundOut && currentOutVal !== 'web-synth') {
+                outputPort = null;
+                selectOut.value = 'web-synth';
+            }
+
+            if (!outputPort) {
+                if (currentChannel === 10) {
+                    loadDrumKit();
+                } else {
+                    loadSoundfont(currentProgram);
+                }
+            } else {
+                setStatus('MIDI Pronto', 'ok');
+            }
+        }
+
+        // Trata mensagens de um teclado MIDI externo
+        function onMidiMessage(msg) {
+            const [status, note, velocity] = msg.data;
+            const cmd = status >> 4;
+            // 9 = Note On, 8 = Note Off
+            if (cmd === 9 && velocity > 0) {
+                playNote(note);
+            } else if (cmd === 8 || (cmd === 9 && velocity === 0)) {
+                stopNote(note);
+            }
+        }
+
+        // Solicita acesso à API
+        async function initMIDI() {
+            if (navigator.requestMIDIAccess) {
+                try {
+                    midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+                    updateDevices();
+                    midiAccess.onstatechange = updateDevices; // Atualiza se plugar/desplugar algo
+                } catch (err) {
+                    console.error('Erro de permissão MIDI (Esperado em ambientes seguros):', err);
+                    setStatus('Sem permissão MIDI (Usando Synth Web)', 'error');
+                    // Se a permissão for negada, força o carregamento do som da web
+                    if (currentChannel === 10) loadDrumKit(); else loadSoundfont(currentProgram);
+                }
+            } else {
+                setStatus('Web MIDI não suportada (Usando Synth Web)', 'error');
+                // Se não for suportado, também força o carregamento
+                if (currentChannel === 10) loadDrumKit(); else loadSoundfont(currentProgram);
+            }
+        }
+
+        document.getElementById('midi-out-select').addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val === 'web-synth') {
+                outputPort = null;
+                // Força carregar timbre na web se escolhido
+                if (currentChannel === 10) loadDrumKit(); else loadSoundfont(currentProgram);
+            } else if (midiAccess) {
+                outputPort = midiAccess.outputs.get(val) || null;
+                if (outputPort) changeProgram(currentProgram);
+            }
+        });
+
+        document.getElementById('midi-in-select').addEventListener('change', (e) => {
+            if (inputPort) inputPort.onmidimessage = null; // Remove listener do anterior
+            const val = e.target.value;
+            if (val && midiAccess) {
+                inputPort = midiAccess.inputs.get(val) || null;
+                if (inputPort) inputPort.onmidimessage = onMidiMessage;
+            } else {
+                inputPort = null;
+            }
+        });
+
+        // Inicia
+        initMIDI();
+
+
+        // --- 4. FUNÇÕES DE ENVIO DE SINAL MIDI E ÁUDIO ---
+
+        function playNote(note) {
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+            if (outputPort) {
+                // Mensagem Note On [10010000 = 0x90 Canal 1, 10011001 = 0x99 Canal 10], Nota, Velocity
+                const cmd = currentChannel === 10 ? 0x99 : 0x90;
+                outputPort.send([cmd, note, 100]);
+            } else {
+                if (currentChannel === 10) {
+                    playWebDrum(note);
+                } else {
+                    playAudioSynth(note);
+                }
+            }
+            const keyEl = document.querySelector(`.key[data-note="${note}"]`);
+            if (keyEl) keyEl.classList.add('active');
+        }
+
+        function stopNote(note) {
+            if (outputPort) {
+                // Mensagem Note Off [10000000 = 0x80 Canal 1, 10001001 = 0x89 Canal 10], Nota, Velocity zero
+                const cmd = currentChannel === 10 ? 0x89 : 0x80;
+                outputPort.send([cmd, note, 0]);
+            } else {
+                if (currentChannel !== 10) {
+                    stopAudioSynth(note);
+                }
+            }
+            const keyEl = document.querySelector(`.key[data-note="${note}"]`);
+            if (keyEl) keyEl.classList.remove('active');
+        }
+
+        function changeProgram(programNumber) {
+            if (outputPort) {
+                // Mensagem Program Change [11000000 = 0xC0 Canal 1, 11001001 = 0xC9 Canal 10], Número do Programa
+                const cmd = currentChannel === 10 ? 0xC9 : 0xC0;
+                outputPort.send([cmd, programNumber]);
+            } else {
+                if (currentChannel !== 10) {
+                    // Carrega o novo timbre para tocar usando o som do navegador
+                    loadSoundfont(programNumber);
+                } else {
+                    // Carrega os samples de bateria de estúdio
+                    loadDrumKit();
+                    if (programNumber === 24 || programNumber === 25) {
+                        setStatus('Banco de Bateria (Synth TR-808)', 'ok');
+                    }
+                }
+            }
+        }
+
+
+        // --- 5. INTERAÇÃO (MOUSE E TECLADO FÍSICO) ---
+        
+        // Mouse / Toque
+        let isMouseDown = false;
+        let currentMouseNote = null;
+
+        pianoContainer.addEventListener('mousedown', (e) => {
+            isMouseDown = true;
+            const key = e.target.closest('.key');
+            if (key) {
+                const note = parseInt(key.dataset.note);
+                playNote(note);
+                currentMouseNote = note;
+            }
+        });
+
+        pianoContainer.addEventListener('mouseover', (e) => {
+            if (!isMouseDown) return;
+            const key = e.target.closest('.key');
+            if (key) {
+                const note = parseInt(key.dataset.note);
+                if (note !== currentMouseNote) {
+                    if (currentMouseNote !== null) stopNote(currentMouseNote);
+                    playNote(note);
+                    currentMouseNote = note;
+                }
+            }
+        });
+
+        pianoContainer.addEventListener('mouseout', (e) => {
+            if (!isMouseDown) return;
+            const key = e.target.closest('.key');
+            if (key) {
+                const note = parseInt(key.dataset.note);
+                if (note === currentMouseNote) {
+                    stopNote(note);
+                    currentMouseNote = null;
+                }
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isMouseDown = false;
+            if (currentMouseNote !== null) {
+                stopNote(currentMouseNote);
+                currentMouseNote = null;
+            }
+        });
+
+        // Teclado do PC
+        const activePCNotes = new Map(); // Mapeia código da tecla para nota, evitando bugs ao trocar de oitava segurando tecla
+
+        window.addEventListener('keydown', (e) => {
+            if (e.repeat) return; // Evita metralhadora de sons se segurar tecla
+            if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return; // Ignora se estiver num campo
+
+            const offset = keyMap[e.code];
+            if (offset !== undefined) {
+                const baseNote = (currentOctave + 1) * 12;
+                const note = baseNote + offset;
+                
+                if (note >= startNote && note <= endNote) {
+                    playNote(note);
+                    activePCNotes.set(e.code, note);
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (activePCNotes.has(e.code)) {
+                const note = activePCNotes.get(e.code);
+                stopNote(note);
+                activePCNotes.delete(e.code);
+            }
+        });
+
+    </script>
+</body>
+</html>
